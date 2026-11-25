@@ -1,0 +1,1965 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#6C4CF1">
+<meta name="description" content="Schach gegen den Computer mit Coach, Lektionen und Sprachausgabe. Funktioniert auch offline.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Schach">
+<title>Schach mit Coach</title>
+<style>
+:root{
+  --violet:#6C4CF1; --green:#2EC48A; --sun:#FFB627; --coral:#FF6B57; --red:#E5383B; --sky:#3FB4F0;
+  --bg:#F5F3FF; --surface:#FFFFFF; --text:#2B2350; --muted:#625A8A; --rule:linear-gradient(90deg,#6C4CF1,#FF6B57,#FFB627);
+  --border:#E4DFFB; --btn:#6C4CF1; --btn-text:#FFFFFF; --btn2:#EEEAFF; --btn2-text:#2B2350;
+  --light:#EAF8F0; --dark:#5DBB93; --frame:#2B2350; --focus:#FFB627; --avatar:#6C4CF1; --card:#EEEAFF;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#17132B; --surface:#241E45; --text:#F2EFFF; --muted:#BDB5E3; --border:#3A3266;
+    --btn:#A594FF; --btn-text:#17132B; --btn2:#342C60; --btn2-text:#F2EFFF;
+    --frame:#3A3266; --avatar:#8B74FF; --card:#2E2757; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#17132B; --surface:#241E45; --text:#F2EFFF; --muted:#BDB5E3; --border:#3A3266;
+  --btn:#A594FF; --btn-text:#17132B; --btn2:#342C60; --btn2-text:#F2EFFF;
+  --frame:#3A3266; --avatar:#8B74FF; --card:#2E2757; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;line-height:1.45;-webkit-text-size-adjust:100%}
+.wrap{max-width:1040px;margin:0 auto;padding:24px 16px 40px}
+h1{font-size:1.75rem;margin:0 0 8px;font-weight:700;letter-spacing:-.01em}
+.rule{height:4px;width:96px;background:var(--rule);border:0;border-radius:2px;margin:0 0 10px}
+.sub{color:var(--muted);margin:0 0 20px;font-size:.95rem}
+.tabs{display:flex;gap:8px;margin:0 0 22px}
+.tab{font:inherit;font-weight:600;border:1px solid var(--border);background:var(--btn2);color:var(--btn2-text);border-radius:6px;padding:9px 18px;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--btn);color:var(--btn-text);border-color:var(--btn)}
+.game{display:grid;grid-template-columns:minmax(0,540px) minmax(260px,1fr);gap:28px;align-items:start}
+@media (max-width:860px){.game{grid-template-columns:1fr}}
+.board-wrap{position:relative;width:100%;max-width:540px}
+.board{display:grid;grid-template-columns:repeat(8,1fr);border:8px solid var(--frame);border-radius:6px;user-select:none;-webkit-user-select:none;overflow:hidden}
+.sq{position:relative;border:0;padding:0;margin:0;aspect-ratio:1;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:clamp(24px,8.6vw,52px);line-height:1;font-family:"Segoe UI Symbol","DejaVu Sans","Noto Sans Symbols 2","Arial Unicode MS",serif;-webkit-tap-highlight-color:transparent}
+.sq.l{background:var(--light)}
+.sq.d{background:var(--dark)}
+.sq.last::before,.sq.sel::before,.sq.chk::before,.sq.wrong::before{content:"";position:absolute;inset:0}
+.sq.last::before{background:rgba(255,182,39,.5)}
+.sq.sel::before{background:rgba(255,182,39,.85)}
+.sq.wrong::before{background:rgba(255,107,87,.6)}
+.sq.chk::before{background:radial-gradient(circle,rgba(229,56,59,.95) 0%,rgba(229,56,59,.5) 55%,rgba(229,56,59,0) 78%)}
+.sq.tgt::after{content:"";position:absolute;width:28%;height:28%;border-radius:50%;background:rgba(108,76,241,.8);box-shadow:0 0 0 2px rgba(255,255,255,.6);z-index:2;pointer-events:none}
+.sq.tgt.cap::after{width:84%;height:84%;background:transparent;border:5px solid rgba(108,76,241,.75);box-shadow:none}
+.sq:focus-visible{outline:3px solid var(--focus);outline-offset:-3px;z-index:3}
+.pc{position:relative;z-index:1;pointer-events:none}
+.pc.w{color:#FFFFFF;text-shadow:1px 1px 0 #2B2350,-1px -1px 0 #2B2350,1px -1px 0 #2B2350,-1px 1px 0 #2B2350,0 2px 3px rgba(0,0,0,.25)}
+.pc.b{color:#1E1838;text-shadow:1px 1px 0 rgba(255,255,255,.55),-1px -1px 0 rgba(255,255,255,.55),1px -1px 0 rgba(255,255,255,.55),-1px 1px 0 rgba(255,255,255,.55)}
+.coord{position:absolute;font-size:11px;font-weight:600;font-family:"Segoe UI",system-ui,sans-serif;z-index:1;pointer-events:none}
+.coord.f{right:4px;bottom:2px}
+.coord.r{left:4px;top:2px}
+.sq.l .coord{color:#3E9A72}
+.sq.d .coord{color:#EAF8F0}
+.badge{position:absolute;top:2px;right:2px;z-index:4;pointer-events:none;font-size:12px}
+.badge .qi{width:22px;height:22px;font-size:12px;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px}
+.status{font-size:1.1rem;font-weight:600;margin:0 0 4px;min-height:1.6em}
+.status.thinking{color:var(--muted)}
+.hint{color:var(--muted);font-size:.88rem;margin:0 0 16px;min-height:1.3em}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--muted);flex:1 1 120px}
+select{font:inherit;color:var(--text);background:var(--btn2);border:1px solid var(--border);border-radius:6px;padding:8px}
+button.act{font:inherit;font-weight:600;border:0;border-radius:6px;padding:10px 14px;cursor:pointer;flex:1 1 auto}
+button.primary{background:var(--btn);color:var(--btn-text)}
+button.secondary{background:var(--btn2);color:var(--btn2-text)}
+button.act:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+h2{font-size:1rem;margin:18px 0 8px}
+.captured{font-size:1.4rem;min-height:1.7em;letter-spacing:1px;font-family:"Segoe UI Symbol","DejaVu Sans","Noto Sans Symbols 2",serif}
+.captured .lbl,.lbl{font-family:"Segoe UI",system-ui,sans-serif;font-size:.85rem;color:var(--muted);margin-right:6px;letter-spacing:0}
+.moves{max-height:240px;overflow-y:auto;border-top:1px solid var(--border);margin:0;padding:0;list-style:none;font-variant-numeric:tabular-nums}
+.moves li{display:grid;grid-template-columns:2.6em 1fr 1fr;padding:4px 2px;border-bottom:1px solid var(--border);font-size:.95rem;align-items:center}
+.moves li span{display:inline-flex;align-items:center;gap:5px}
+.moves .n{color:var(--muted)}
+.moves .empty{display:block;color:var(--muted);border:0}
+.promo{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(43,35,80,.6);z-index:10;border-radius:6px}
+.promo.open{display:flex}
+.promo-box{background:var(--surface);color:var(--text);padding:16px;border-radius:8px;text-align:center}
+.promo-box p{margin:0 0 10px;font-weight:600}
+.promoBtns button{font-size:2.6rem;width:64px;height:64px;margin:4px;border:1px solid var(--border);border-radius:6px;background:var(--light);cursor:pointer;font-family:"Segoe UI Symbol","DejaVu Sans","Noto Sans Symbols 2",serif}
+
+/* Qualitätssymbole */
+.qi{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:11px;font-weight:800;line-height:1;flex:0 0 auto;font-family:"Segoe UI",system-ui,sans-serif;vertical-align:middle}
+.qi svg{width:13px;height:13px}
+.q-best{background:#2EC48A;color:#FFFFFF}
+.q-good{background:#3FB4F0;color:#FFFFFF}
+.q-book{background:#EEEAFF;color:#6C4CF1;box-shadow:inset 0 0 0 1.5px #6C4CF1}
+.q-only{background:#6C4CF1;color:#FFFFFF}
+.q-inacc{background:#FFB627;color:#2B2350}
+.q-mist{background:#FF6B57;color:#FFFFFF}
+.q-blun{background:#E5383B;color:#FFFFFF;box-shadow:0 0 0 2px #FFFFFF,0 0 0 4px #E5383B}
+.q-wait{background:transparent;color:var(--muted)}
+.legend{margin-top:14px;font-size:.9rem}
+.legend summary{cursor:pointer;color:var(--muted)}
+.legend ul{list-style:none;padding:0;margin:10px 0 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.legend li{display:flex;align-items:center;gap:8px}
+
+/* Coach */
+.coach{margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;display:grid;grid-template-columns:44px 1fr;gap:12px}
+.avatar{width:44px;height:44px;border-radius:50%;background:var(--avatar);color:#FFFFFF;display:flex;align-items:center;justify-content:center}
+.avatar svg{width:28px;height:28px}
+.coach-name{font-weight:700;margin:0 0 4px;font-size:.95rem}
+.coach-msg{max-height:200px;overflow-y:auto}
+.coach-msg p{margin:0 0 8px}
+.coach-msg p:last-child{margin-bottom:0}
+.coach-msg .qi{margin-right:4px}
+.coach-msg.busy{color:var(--muted);font-style:italic}
+.coach-tools{grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap}
+.coach-tools button{font:inherit;font-size:.9rem;font-weight:600;border:1px solid var(--border);background:var(--btn2);color:var(--btn2-text);border-radius:6px;padding:8px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.coach-tools button[aria-pressed="true"]{background:var(--btn);color:var(--btn-text);border-color:var(--btn)}
+.coach-tools svg{width:16px;height:16px}
+.san{white-space:nowrap}
+
+/* Lernbereich */
+.board-status{margin:10px 2px 0;color:var(--muted);font-size:.92rem;min-height:1.4em}
+.lpanel{max-height:min(80vh,760px);overflow-y:auto}
+.trainCard{background:linear-gradient(135deg,#6C4CF1,#9C6BFF);color:#FFFFFF;border-radius:8px;padding:14px;margin:0 0 18px}
+.trainCard h3{margin:0;font-size:1.05rem}
+.trainCard .act{width:100%;margin-top:4px}
+.topic{margin:0 0 18px}
+.topic h3{font-size:1.05rem;margin:0}
+.tdesc{margin:2px 0 8px;color:var(--muted);font-size:.88rem}
+.lessons{display:flex;flex-direction:column;gap:6px}
+.lesson{font:inherit;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--btn2);color:var(--btn2-text);border:1px solid var(--border);border-radius:6px;padding:9px 12px;cursor:pointer}
+.lesson:hover{border-color:var(--violet)}
+.lesson .chk{color:var(--green);font-weight:700}
+.progress-total{color:var(--muted);font-size:.88rem;margin:4px 0 0}
+.back{font:inherit;font-size:.9rem;background:none;border:0;padding:0;color:var(--muted);cursor:pointer;margin-bottom:12px}
+.back:hover{color:var(--text)}
+.meta{margin:0;color:var(--muted);font-size:.88rem}
+.ltitle{font-size:1.3rem;margin:2px 0 10px}
+.sub3{font-size:1rem;margin:16px 0 6px}
+.dots{display:flex;align-items:center;gap:6px;margin:0 0 14px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--border)}
+.dot.past{background:var(--green)}
+.dot.on{background:var(--violet)}
+.dotlbl{margin-left:6px;font-size:.85rem;color:var(--muted)}
+.body p{margin:0 0 10px}
+.task{font-weight:600}
+.solved{color:var(--green);font-weight:700}
+.comment{background:var(--btn2);padding:10px 12px;border-radius:6px;margin:0 0 12px}
+.dmoves{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 12px}
+.dm{font:inherit;font-size:.86rem;background:none;border:1px solid var(--border);color:var(--text);border-radius:4px;padding:3px 7px;cursor:pointer;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:4px}
+.dm .qi{width:16px;height:16px;font-size:9px}
+.dm .qi svg{width:10px;height:10px}
+.dm.cur{background:#FFF1CC;border-color:var(--sun);color:#2B2350}
+.small{font-size:.85rem;color:var(--muted)}
+.balance{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0 0}
+.balItem{display:inline-flex;align-items:center;gap:4px;font-weight:600}
+.nav{margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+[hidden]{display:none!important}
+
+.coach-tools select{font:inherit;font-size:.9rem;padding:7px 8px;max-width:220px;flex:0 1 auto}
+
+.trainCard .tdesc{color:rgba(255,255,255,.88)}
+.trainCard .act.primary{background:#FFB627;color:#2B2350}
+.panel,.coach{box-shadow:0 2px 10px rgba(108,76,241,.08)}
+.board{box-shadow:0 6px 20px rgba(43,35,80,.18)}
+.tab[aria-selected="true"]{box-shadow:0 2px 8px rgba(108,76,241,.3)}
+/* Konfetti bei Erfolgen */
+.confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:50}
+.confetti i{position:absolute;top:-12px;width:9px;height:14px;border-radius:2px;opacity:.95;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(105vh) rotate(720deg)}}
+@media (prefers-reduced-motion: reduce){.confetti{display:none}}
+.sq.d.last::before{background:rgba(255,214,102,.62)}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Schach gegen den Computer</h1>
+  <hr class="rule">
+  <p class="sub">Läuft komplett im Browser, auch ohne Internetverbindung. Figur antippen, dann das Zielfeld wählen.</p>
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab" role="tab" data-tab="play" aria-selected="true">Spielen</button>
+    <button type="button" class="tab" role="tab" data-tab="learn" aria-selected="false">Lernen mit Coach</button>
+  </div>
+
+  <div id="playView" class="game">
+    <div class="board-wrap">
+      <div class="board" id="board" aria-label="Schachbrett"></div>
+      <div class="promo" id="promo" role="dialog" aria-label="Umwandlung wählen"><div class="promo-box"><p>Umwandeln in</p><div class="promoBtns"></div></div></div>
+    </div>
+    <div class="panel">
+      <p class="status" id="status" aria-live="polite"></p>
+      <p class="hint" id="hint"></p>
+      <div class="row">
+        <label>Deine Farbe
+          <select id="color"><option value="w">Weiß</option><option value="b">Schwarz</option><option value="r">Zufall</option></select>
+        </label>
+        <label>Spielstärke
+          <select id="level"><option value="1">Anfänger</option><option value="2">Leicht</option><option value="3" selected>Mittel</option><option value="4">Stark</option></select>
+        </label>
+      </div>
+      <div class="row"><button class="act primary" id="newBtn">Neue Partie</button></div>
+      <div class="row">
+        <button class="act secondary" id="undoBtn">Zug zurück</button>
+        <button class="act secondary" id="flipBtn">Brett drehen</button>
+      </div>
+      <h2>Geschlagen</h2>
+      <div class="captured" id="capW"></div>
+      <div class="captured" id="capB"></div>
+      <h2>Züge</h2>
+      <ol class="moves" id="moves"></ol>
+    </div>
+  </div>
+
+  <div id="learnView" class="game" hidden>
+    <div class="board-wrap">
+      <div class="board" id="learnBoard" aria-label="Lernbrett"></div>
+      <div class="promo" id="learnPromo" role="dialog" aria-label="Umwandlung wählen"><div class="promo-box"><p>Umwandeln in</p><div class="promoBtns"></div></div></div>
+      <p class="board-status" id="learnStatus" aria-live="polite"></p>
+      <section class="coach" aria-label="Coach">
+        <div class="avatar"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 20h9v-2.2c0-2.4-1-4.2-2.3-5.6 1.1-.6 1.8-1.6 1.8-2.9 0-2.6-2.4-5.3-6-5.3l-.6 1.6L7.6 4.4 8 7.3 5 10.4l1.3 2 2.4-.9.9.6C8.8 13.6 8 15.4 8 17.8z" fill="currentColor"/><rect x="6.5" y="19" width="12" height="2.4" rx="1" fill="currentColor"/></svg></div>
+        <div>
+          <p class="coach-name">Coach</p>
+          <div class="coach-msg" id="coachMsg" aria-live="polite"></div>
+        </div>
+        <div class="coach-tools">
+          <button type="button" id="voiceBtn" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a4.5 4.5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg><span class="vlbl">Sprache aus</span></button>
+          <select id="voiceSel" aria-label="Stimme wählen" hidden></select>
+          <button type="button" id="analyzeBtn"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6" stroke="currentColor" stroke-width="2.2" fill="none"/><path d="M15 15l5 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg><span>Brett analysieren</span></button>
+        </div>
+      </section>
+    </div>
+    <div class="panel lpanel" id="learnPanel"></div>
+  </div>
+</div>
+<script>
+(function(){
+'use strict';
+/* ---------- Grundlagen ---------- */
+const KN=[[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+const DG=[[-1,-1],[-1,1],[1,-1],[1,1]];
+const OR=[[-1,0],[1,0],[0,-1],[0,1]];
+const KG=DG.concat(OR);
+const VAL={P:100,N:320,B:330,R:500,Q:900,K:20000};
+const PH={N:1,B:1,R:2,Q:4};
+const GLYPH={K:'\u265A',Q:'\u265B',R:'\u265C',B:'\u265D',N:'\u265E',P:'\u265F'};
+const VS='\uFE0E';
+const DE={K:'K',Q:'D',R:'T',B:'L',N:'S'};
+const NAME={K:'König',Q:'Dame',R:'Turm',B:'Läufer',N:'Springer',P:'Bauer'};
+const MATE=100000, INF=1e9, TIMEOUT={t:1};
+const PIDX={P:0,N:1,B:2,R:3,Q:4,K:5,p:6,n:7,b:8,r:9,q:10,k:11};
+
+const isW=p=>p<'a';
+const colorOf=p=>p?(isW(p)?'w':'b'):null;
+const other=c=>c==='w'?'b':'w';
+const up=p=>p.toUpperCase();
+const sqName=i=>'abcdefgh'[i&7]+(8-(i>>3));
+
+/* Zobrist-Schlüssel für Stellungen */
+let zseed=0x2545F491;
+function zr(){zseed^=zseed<<13;zseed^=zseed>>>17;zseed^=zseed<<5;return zseed>>>0;}
+const Z1=new Uint32Array(768),Z2=new Uint32Array(768);
+for(let i=0;i<768;i++){Z1[i]=zr();Z2[i]=zr();}
+const ZS1=zr(),ZS2=zr(),ZC1=[],ZC2=[],ZE1=[],ZE2=[];
+for(let i=0;i<16;i++){ZC1.push(zr());ZC2.push(zr());}
+for(let i=0;i<8;i++){ZE1.push(zr());ZE2.push(zr());}
+function hashOf(st){
+  let a=0,b=0;
+  for(let i=0;i<64;i++){const p=st.b[i]; if(p){const k=PIDX[p]*64+i; a^=Z1[k]; b^=Z2[k];}}
+  if(st.turn==='b'){a^=ZS1;b^=ZS2;}
+  const c=(st.cr.K?1:0)|(st.cr.Q?2:0)|(st.cr.k?4:0)|(st.cr.q?8:0);
+  a^=ZC1[c];b^=ZC2[c];
+  if(st.ep>=0){a^=ZE1[st.ep&7];b^=ZE2[st.ep&7];}
+  st.h1=a>>>0; st.h2=b>>>0;
+  return (a>>>0)*2097152+((b>>>0)>>>11);
+}
+
+function parseFen(f){
+  const [pos,t,c,e,h,fu]=f.trim().split(/\s+/);
+  const b=[];
+  for(const ch of pos.replace(/\//g,'')){
+    if(/\d/.test(ch)) for(let i=0;i<+ch;i++) b.push(null); else b.push(ch);
+  }
+  const cr=c||'-';
+  const st={b,turn:t||'w',cr:{K:cr.includes('K'),Q:cr.includes('Q'),k:cr.includes('k'),q:cr.includes('q')},
+            ep:(!e||e==='-')?-1:('abcdefgh'.indexOf(e[0])+(8-(+e[1]))*8),half:+h||0,full:+fu||1};
+  st.key=hashOf(st);
+  return st;
+}
+const START_FEN='rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+function initState(){return parseFen(START_FEN);}
+
+function kingSq(b,c){return b.indexOf(c==='w'?'K':'k');}
+
+function attacked(b,sq,by){
+  const r=sq>>3,c=sq&7,W=by==='w';
+  const pr=W?r+1:r-1, pp=W?'P':'p';
+  if(pr>=0&&pr<8){
+    if(c>0&&b[pr*8+c-1]===pp) return true;
+    if(c<7&&b[pr*8+c+1]===pp) return true;
+  }
+  const n=W?'N':'n', k=W?'K':'k';
+  for(const [dr,dc] of KN){const rr=r+dr,cc=c+dc; if(rr>=0&&rr<8&&cc>=0&&cc<8&&b[rr*8+cc]===n) return true;}
+  for(const [dr,dc] of KG){const rr=r+dr,cc=c+dc; if(rr>=0&&rr<8&&cc>=0&&cc<8&&b[rr*8+cc]===k) return true;}
+  const b1=W?'B':'b', r1=W?'R':'r', q1=W?'Q':'q';
+  for(const [dr,dc] of DG){
+    let rr=r+dr,cc=c+dc;
+    while(rr>=0&&rr<8&&cc>=0&&cc<8){const p=b[rr*8+cc]; if(p){ if(p===b1||p===q1) return true; break;} rr+=dr;cc+=dc;}
+  }
+  for(const [dr,dc] of OR){
+    let rr=r+dr,cc=c+dc;
+    while(rr>=0&&rr<8&&cc>=0&&cc<8){const p=b[rr*8+cc]; if(p){ if(p===r1||p===q1) return true; break;} rr+=dr;cc+=dc;}
+  }
+  return false;
+}
+
+/* alle Figuren einer Farbe, die ein Feld angreifen (für den Coach) */
+function attackersOf(b,sq,by){
+  const out=[];
+  for(let i=0;i<64;i++){
+    const p=b[i]; if(!p||colorOf(p)!==by) continue;
+    const t=up(p), r=i>>3, c=i&7, tr=sq>>3, tc=sq&7, dr=tr-r, dc=tc-c;
+    if(t==='P'){ if(dr===(by==='w'?-1:1)&&Math.abs(dc)===1) out.push(i); }
+    else if(t==='N'){ if((Math.abs(dr)===1&&Math.abs(dc)===2)||(Math.abs(dr)===2&&Math.abs(dc)===1)) out.push(i); }
+    else if(t==='K'){ if(Math.max(Math.abs(dr),Math.abs(dc))===1) out.push(i); }
+    else{
+      const diag=Math.abs(dr)===Math.abs(dc)&&dr!==0, line=(dr===0)!==(dc===0);
+      if((t==='B'&&!diag)||(t==='R'&&!line)||(t==='Q'&&!diag&&!line)) continue;
+      const sr=Math.sign(dr), sc=Math.sign(dc); let rr=r+sr, cc=c+sc, free=true;
+      while(rr!==tr||cc!==tc){ if(b[rr*8+cc]){free=false;break;} rr+=sr; cc+=sc; }
+      if(free) out.push(i);
+    }
+  }
+  return out;
+}
+
+function inCheck(st){return attacked(st.b,kingSq(st.b,st.turn),other(st.turn));}
+
+function genPseudo(st,capsOnly){
+  const b=st.b, me=st.turn, W=me==='w', opp=other(me), out=[];
+  for(let sq=0;sq<64;sq++){
+    const p=b[sq]; if(!p||colorOf(p)!==me) continue;
+    const r=sq>>3,c=sq&7,t=up(p);
+    if(t==='P'){
+      const dr=W?-1:1, start=W?6:1, last=W?0:7;
+      const add=(to,cap)=>{
+        if((to>>3)===last){for(const pr of ['Q','R','B','N']) out.push({from:sq,to,piece:p,cap,promo:W?pr:pr.toLowerCase()});}
+        else out.push({from:sq,to,piece:p,cap});
+      };
+      const one=sq+dr*8;
+      if(!b[one]){
+        if(!capsOnly||(one>>3)===last) add(one,null);
+        if(!capsOnly&&r===start&&!b[one+dr*8]) out.push({from:sq,to:one+dr*8,piece:p,cap:null,flag:'double'});
+      }
+      for(const dc of [-1,1]){
+        const cc=c+dc; if(cc<0||cc>7) continue;
+        const to=(r+dr)*8+cc, q=b[to];
+        if(q&&colorOf(q)!==me) add(to,q);
+        else if(to===st.ep) out.push({from:sq,to,piece:p,cap:W?'p':'P',flag:'ep'});
+      }
+    } else if(t==='N'||t==='K'){
+      for(const [dr,dc] of (t==='N'?KN:KG)){
+        const rr=r+dr,cc=c+dc; if(rr<0||rr>7||cc<0||cc>7) continue;
+        const to=rr*8+cc,q=b[to];
+        if(!q){ if(!capsOnly) out.push({from:sq,to,piece:p,cap:null}); }
+        else if(colorOf(q)!==me) out.push({from:sq,to,piece:p,cap:q});
+      }
+      if(t==='K'&&!capsOnly){
+        if(W&&sq===60){
+          if(st.cr.K&&b[63]==='R'&&!b[61]&&!b[62]&&!attacked(b,60,opp)&&!attacked(b,61,opp)&&!attacked(b,62,opp))
+            out.push({from:60,to:62,piece:p,cap:null,flag:'OO'});
+          if(st.cr.Q&&b[56]==='R'&&!b[57]&&!b[58]&&!b[59]&&!attacked(b,60,opp)&&!attacked(b,59,opp)&&!attacked(b,58,opp))
+            out.push({from:60,to:58,piece:p,cap:null,flag:'OOO'});
+        }
+        if(!W&&sq===4){
+          if(st.cr.k&&b[7]==='r'&&!b[5]&&!b[6]&&!attacked(b,4,opp)&&!attacked(b,5,opp)&&!attacked(b,6,opp))
+            out.push({from:4,to:6,piece:p,cap:null,flag:'OO'});
+          if(st.cr.q&&b[0]==='r'&&!b[1]&&!b[2]&&!b[3]&&!attacked(b,4,opp)&&!attacked(b,3,opp)&&!attacked(b,2,opp))
+            out.push({from:4,to:2,piece:p,cap:null,flag:'OOO'});
+        }
+      }
+    } else {
+      const dirs=t==='B'?DG:t==='R'?OR:KG;
+      for(const [dr,dc] of dirs){
+        let rr=r+dr,cc=c+dc;
+        while(rr>=0&&rr<8&&cc>=0&&cc<8){
+          const to=rr*8+cc,q=b[to];
+          if(!q){ if(!capsOnly) out.push({from:sq,to,piece:p,cap:null}); }
+          else { if(colorOf(q)!==me) out.push({from:sq,to,piece:p,cap:q}); break; }
+          rr+=dr;cc+=dc;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function makeMove(st,m){
+  const b=st.b.slice(), W=st.turn==='w';
+  b[m.to]=m.promo||m.piece; b[m.from]=null;
+  if(m.flag==='ep') b[m.to+(W?8:-8)]=null;
+  if(m.flag==='OO'){ if(W){b[61]='R';b[63]=null;} else {b[5]='r';b[7]=null;} }
+  if(m.flag==='OOO'){ if(W){b[59]='R';b[56]=null;} else {b[3]='r';b[0]=null;} }
+  const cr={K:st.cr.K,Q:st.cr.Q,k:st.cr.k,q:st.cr.q};
+  if(m.piece==='K'){cr.K=false;cr.Q=false;}
+  if(m.piece==='k'){cr.k=false;cr.q=false;}
+  for(const s of [m.from,m.to]){ if(s===63)cr.K=false; if(s===56)cr.Q=false; if(s===7)cr.k=false; if(s===0)cr.q=false; }
+  const n={b,turn:W?'b':'w',cr,ep:m.flag==='double'?(m.from+m.to)/2:-1,
+          half:(up(m.piece)==='P'||m.cap)?0:st.half+1, full:st.full+(W?0:1)};
+  let a=st.h1,c=st.h2,k;
+  k=PIDX[m.piece]*64+m.from; a^=Z1[k]; c^=Z2[k];
+  k=PIDX[m.promo||m.piece]*64+m.to; a^=Z1[k]; c^=Z2[k];
+  if(m.cap){ const cs=m.flag==='ep'?m.to+(W?8:-8):m.to; k=PIDX[m.cap]*64+cs; a^=Z1[k]; c^=Z2[k]; }
+  if(m.flag==='OO'||m.flag==='OOO'){
+    const R=W?'R':'r', rf=W?(m.flag==='OO'?63:56):(m.flag==='OO'?7:0), rt=W?(m.flag==='OO'?61:59):(m.flag==='OO'?5:3);
+    k=PIDX[R]*64+rf; a^=Z1[k]; c^=Z2[k]; k=PIDX[R]*64+rt; a^=Z1[k]; c^=Z2[k];
+  }
+  a^=ZS1; c^=ZS2;
+  const co=(st.cr.K?1:0)|(st.cr.Q?2:0)|(st.cr.k?4:0)|(st.cr.q?8:0), cn=(cr.K?1:0)|(cr.Q?2:0)|(cr.k?4:0)|(cr.q?8:0);
+  if(co!==cn){ a^=ZC1[co]^ZC1[cn]; c^=ZC2[co]^ZC2[cn]; }
+  if(st.ep>=0){ a^=ZE1[st.ep&7]; c^=ZE2[st.ep&7]; }
+  if(n.ep>=0){ a^=ZE1[n.ep&7]; c^=ZE2[n.ep&7]; }
+  n.h1=a>>>0; n.h2=c>>>0; n.key=n.h1*2097152+(n.h2>>>11);
+  return n;
+}
+
+function legalMoves(st){
+  const me=st.turn,opp=other(me);
+  return genPseudo(st,false).filter(m=>{const n=makeMove(st,m); return !attacked(n.b,kingSq(n.b,me),opp);});
+}
+const moveCode=m=>sqName(m.from)+sqName(m.to)+(m.promo?m.promo.toLowerCase():'');
+const findMove=(st,c)=>legalMoves(st).find(m=>moveCode(m)===c);
+const isMated=st=>inCheck(st)&&!legalMoves(st).length;
+
+/* ---------- Bewertung ---------- */
+const PST={
+P:[0,0,0,0,0,0,0,0, 50,50,50,50,50,50,50,50, 10,10,20,30,30,20,10,10, 5,5,10,25,25,10,5,5, 0,0,0,20,20,0,0,0, 5,-5,-10,0,0,-10,-5,5, 5,10,10,-20,-20,10,10,5, 0,0,0,0,0,0,0,0],
+N:[-50,-40,-30,-30,-30,-30,-40,-50, -40,-20,0,0,0,0,-20,-40, -30,0,10,15,15,10,0,-30, -30,5,15,20,20,15,5,-30, -30,0,15,20,20,15,0,-30, -30,5,10,15,15,10,5,-30, -40,-20,0,5,5,0,-20,-40, -50,-40,-30,-30,-30,-30,-40,-50],
+B:[-20,-10,-10,-10,-10,-10,-10,-20, -10,0,0,0,0,0,0,-10, -10,0,5,10,10,5,0,-10, -10,5,5,10,10,5,5,-10, -10,0,10,10,10,10,0,-10, -10,10,10,10,10,10,10,-10, -10,5,0,0,0,0,5,-10, -20,-10,-10,-10,-10,-10,-10,-20],
+R:[0,0,0,0,0,0,0,0, 5,10,10,10,10,10,10,5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, 0,0,0,5,5,0,0,0],
+Q:[-20,-10,-10,-5,-5,-10,-10,-20, -10,0,0,0,0,0,0,-10, -10,0,5,5,5,5,0,-10, -5,0,5,5,5,5,0,-5, 0,0,5,5,5,5,0,-5, -10,5,5,5,5,5,0,-10, -10,0,5,0,0,0,0,-10, -20,-10,-10,-5,-5,-10,-10,-20],
+KM:[-30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30, -20,-30,-30,-40,-40,-30,-30,-20, -10,-20,-20,-20,-20,-20,-20,-10, 20,20,0,0,0,0,20,20, 20,30,10,0,0,10,30,20],
+KE:[-50,-40,-30,-20,-20,-30,-40,-50, -30,-20,-10,0,0,-10,-20,-30, -30,-10,20,30,30,20,-10,-30, -30,-10,30,40,40,30,-10,-30, -30,-10,30,40,40,30,-10,-30, -30,-10,20,30,30,20,-10,-30, -30,-30,0,0,0,0,-30,-30, -50,-30,-30,-30,-30,-30,-30,-50]
+};
+const PASS_MG=[0,5,10,15,25,40,60,0], PASS_EG=[0,10,20,35,60,100,150,0];
+
+function isPassed(b,i,W){
+  const r=i>>3,c=i&7,ep=W?'p':'P';
+  for(let rr=W?r-1:r+1; W?rr>=0:rr<8; rr+=W?-1:1)
+    for(let cc=Math.max(0,c-1);cc<=Math.min(7,c+1);cc++) if(b[rr*8+cc]===ep) return false;
+  return true;
+}
+function shield(b,col){
+  const k=kingSq(b,col), r=k>>3, c=k&7, W=col==='w';
+  if(r!==(W?7:0)||(c>2&&c<5)) return 0;
+  let s=0; const p=W?'P':'p';
+  for(let cc=Math.max(0,c-1);cc<=Math.min(7,c+1);cc++){
+    if(b[(W?6:1)*8+cc]===p) s+=12; else if(b[(W?5:2)*8+cc]===p) s+=6; else s-=8;
+  }
+  return s;
+}
+
+function evaluate(st){
+  const b=st.b, pw=new Int8Array(8), pb=new Int8Array(8);
+  for(let i=0;i<64;i++){ if(b[i]==='P') pw[i&7]++; else if(b[i]==='p') pb[i&7]++; }
+  let mg=0,eg=0,phase=0,bw=0,bb=0,matW=0,matB=0,npW=0,npB=0,pawnsW=0,pawnsB=0;
+  for(let i=0;i<64;i++){
+    const p=b[i]; if(!p) continue;
+    const t=up(p),W=isW(p),r=i>>3,c=i&7,idx=W?i:((7-r)*8+c);
+    let m,e;
+    if(t==='K'){ m=PST.KM[idx]; e=PST.KE[idx]; }
+    else{
+      m=e=VAL[t]+PST[t][idx];
+      if(W) matW+=VAL[t]; else matB+=VAL[t];
+      if(t!=='P'){ phase+=PH[t]; if(W) npW+=VAL[t]; else npB+=VAL[t]; }
+      else { if(W) pawnsW++; else pawnsB++; }
+    }
+    if(t==='P'){
+      const own=W?pw:pb;
+      if(own[c]>1){m-=10;e-=15;}
+      if((c===0||!own[c-1])&&(c===7||!own[c+1])){m-=10;e-=12;}
+      if(isPassed(b,i,W)){const adv=W?7-r:r; m+=PASS_MG[adv]; e+=PASS_EG[adv];}
+    } else if(t==='R'){
+      const own=W?pw:pb, oth=W?pb:pw;
+      if(!own[c]){ if(!oth[c]){m+=20;e+=10;} else {m+=10;e+=5;} }
+    } else if(t==='B'){ if(W) bw++; else bb++; }
+    if(W){mg+=m;eg+=e;} else {mg-=m;eg-=e;}
+  }
+  if(bw>=2){mg+=30;eg+=40;} if(bb>=2){mg-=30;eg-=40;}
+  mg+=shield(b,'w')-shield(b,'b');
+  const diff=matW-matB;
+  if(phase<=8&&Math.abs(diff)>=300){
+    const winW=diff>0, wk=kingSq(b,winW?'w':'b'), lk=kingSq(b,winW?'b':'w');
+    const lr=lk>>3, lc=lk&7;
+    const cmd=Math.max(3-lr,lr-4)+Math.max(3-lc,lc-4);
+    const md=Math.abs((wk>>3)-lr)+Math.abs((wk&7)-lc);
+    const mu=10*cmd+4*(14-md);
+    eg+=winW?mu:-mu;
+  }
+  const ph=Math.min(phase,24);
+  let s=Math.round((mg*ph+eg*(24-ph))/24);
+  /* ohne Bauern reicht eine Leichtfigur Vorsprung nicht zum Gewinn */
+  if(s>0&&pawnsW===0&&npW-npB<=330) s=Math.round(s/8);
+  if(s<0&&pawnsB===0&&npB-npW<=330) s=Math.round(s/8);
+  return st.turn==='w'?s:-s;
+}
+
+/* ---------- Suche ---------- */
+let nodes=0, deadline=0, qmax=16, useNull=true;
+let TT=new Map(), path=[];
+const killers=[]; for(let i=0;i<128;i++) killers.push([0,0]);
+const hist=new Int32Array(4096);
+const moveId=m=>m.from*64+m.to+(m.promo?PIDX[up(m.promo)]*4096:0);
+
+function order(moves,ttMove,ply){
+  const k=killers[ply]||[0,0];
+  for(const m of moves){
+    const id=moveId(m); let s;
+    if(id===ttMove) s=1e8;
+    else if(m.cap) s=1e7+10*VAL[up(m.cap)]-VAL[up(m.piece)];
+    else if(m.promo) s=9e6+VAL[up(m.promo)];
+    else if(id===k[0]) s=8e6;
+    else if(id===k[1]) s=7e6;
+    else s=hist[m.from*64+m.to];
+    m.o=s;
+  }
+  return moves.sort((a,b)=>b.o-a.o);
+}
+
+function hasPieces(b,col){
+  for(let i=0;i<64;i++){const p=b[i]; if(p&&colorOf(p)===col){const t=up(p); if(t!=='P'&&t!=='K') return true;}}
+  return false;
+}
+
+function quies(st,alpha,beta,ply,qd){
+  if((++nodes&2047)===0&&Date.now()>deadline) throw TIMEOUT;
+  const stand=evaluate(st);
+  if(stand>=beta) return stand;
+  if(stand>alpha) alpha=stand;
+  if(qd>=qmax) return alpha;
+  const me=st.turn,opp=other(me);
+  const inChk=attacked(st.b,kingSq(st.b,me),opp);
+  for(const m of order(genPseudo(st,true),0,127)){
+    if(!inChk&&!m.promo&&stand+VAL[up(m.cap)]+200<alpha) continue;
+    const n=makeMove(st,m);
+    if(attacked(n.b,kingSq(n.b,me),opp)) continue;
+    const s=-quies(n,-beta,-alpha,ply+1,qd+1);
+    if(s>=beta) return s;
+    if(s>alpha) alpha=s;
+  }
+  return alpha;
+}
+
+function negamax(st,depth,alpha,beta,ply,allowNull){
+  if((++nodes&2047)===0&&Date.now()>deadline) throw TIMEOUT;
+  if(ply>0){
+    if(st.half>=100) return 0;
+    const L=path.length;
+    for(let i=L-3;i>=0&&i>=L-1-st.half;i-=2) if(path[i]===st.key) return 0;
+  }
+  const me=st.turn,opp=other(me);
+  const chk=attacked(st.b,kingSq(st.b,me),opp);
+  if(chk&&ply<40) depth++;
+  if(depth<=0) return quies(st,alpha,beta,ply,0);
+
+  let ttMove=0;
+  const tte=TT.get(st.key);
+  if(tte){
+    ttMove=tte.m;
+    if(tte.d>=depth&&ply>0){
+      let s=tte.s; if(s>MATE-1000) s-=ply; else if(s<-MATE+1000) s+=ply;
+      if(tte.f===0) return s;
+      if(tte.f===1&&s>=beta) return s;
+      if(tte.f===2&&s<=alpha) return s;
+    }
+  }
+  if(useNull&&allowNull&&!chk&&depth>=3&&ply>0&&beta<MATE-1000&&hasPieces(st.b,me)&&evaluate(st)>=beta){
+    const ns={b:st.b,turn:opp,cr:st.cr,ep:-1,half:st.half+1,full:st.full}; ns.key=hashOf(ns);
+    path.push(ns.key);
+    const s=-negamax(ns,depth-3,-beta,-beta+1,ply+1,false);
+    path.pop();
+    if(s>=beta) return beta;
+  }
+
+  const a0=alpha; let best=-INF,bestId=0,any=false,cnt=0;
+  for(const m of order(genPseudo(st,false),ttMove,ply)){
+    const n=makeMove(st,m);
+    if(attacked(n.b,kingSq(n.b,me),opp)) continue;
+    any=true; cnt++;
+    path.push(n.key);
+    let s;
+    if(cnt===1) s=-negamax(n,depth-1,-beta,-alpha,ply+1,true);
+    else{
+      let red=0;
+      if(useNull&&depth>=3&&cnt>3&&!chk&&!m.cap&&!m.promo&&m.o<7e6&&!attacked(n.b,kingSq(n.b,opp),me)) red=cnt>8?2:1;
+      s=-negamax(n,depth-1-red,-alpha-1,-alpha,ply+1,true);
+      if(s>alpha&&red) s=-negamax(n,depth-1,-alpha-1,-alpha,ply+1,true);
+      if(s>alpha&&s<beta) s=-negamax(n,depth-1,-beta,-alpha,ply+1,true);
+    }
+    path.pop();
+    if(s>best){best=s;bestId=moveId(m);}
+    if(s>alpha) alpha=s;
+    if(alpha>=beta){
+      if(!m.cap){
+        const id=moveId(m), k=killers[ply];
+        if(k&&k[0]!==id){k[1]=k[0];k[0]=id;}
+        hist[m.from*64+m.to]+=depth*depth;
+      }
+      break;
+    }
+  }
+  if(!any) return chk?-MATE+ply:0;
+  let ss=best; if(ss>MATE-1000) ss+=ply; else if(ss<-MATE+1000) ss-=ply;
+  if(TT.size>600000) TT.clear();
+  TT.set(st.key,{d:depth,s:ss,f:best<=a0?2:(best>=beta?1:0),m:bestId});
+  return best;
+}
+
+/* Wurzelsuche. full=true liefert exakte Werte für jeden Zug (für schwache Stufen und Analyse). */
+function rootSearch(st,o,histKeys){
+  nodes=0; deadline=Date.now()+o.time; qmax=o.q||16; useNull=o.nullMove!==false;
+  for(const k of killers){k[0]=0;k[1]=0;}
+  for(let i=0;i<4096;i++) hist[i]>>=2;
+  let root=order(legalMoves(st),0,0);
+  if(!root.length) return null;
+  const base=(histKeys||[]).concat([st.key]);
+  let best=root[0],bestScore=-INF,depthDone=0,scores=null;
+  for(let d=1;d<=o.depth;d++){
+    path=base.slice();
+    let alpha=-INF,cur=null,curScore=-INF,timedOut=false;
+    const sc=new Map();
+    try{
+      for(const m of root){
+        const n=makeMove(st,m);
+        path.push(n.key);
+        const s=o.full?-negamax(n,d-1,-INF,INF,1,true):-negamax(n,d-1,-INF,-alpha,1,true);
+        path.pop();
+        sc.set(m,s);
+        if(s>curScore){curScore=s;cur=m;}
+        if(s>alpha) alpha=s;
+      }
+    }catch(e){ if(e!==TIMEOUT) throw e; timedOut=true; }
+    if(timedOut){
+      if(cur&&cur===root[0]&&d>1){ best=cur; bestScore=curScore; }
+      else if(cur&&d===1&&!depthDone){ best=cur; bestScore=curScore; scores=sc; depthDone=1; }
+      else if(cur&&curScore>bestScore){ best=cur; bestScore=curScore; }
+      break;
+    }
+    best=cur; bestScore=curScore; depthDone=d; scores=sc;
+    root.sort((a,b)=>(sc.get(b)??-INF)-(sc.get(a)??-INF));
+    if(Math.abs(bestScore)>MATE-1000) break;
+  }
+  return {move:best,score:bestScore,depth:depthDone,scores,root};
+}
+
+/* ---------- Eröffnungsbuch ---------- */
+const BOOK=[
+'e2e4 e7e5 g1f3 b8c6 f1c4 f8c5 c2c3 g8f6 d2d4 e5d4 c3d4 c5b4',
+'e2e4 e7e5 g1f3 b8c6 f1c4 g8f6 d2d3 f8e7 e1g1 e8g8',
+'e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 g8f6 e1g1 f8e7 f1e1 b7b5 a4b3 d7d6',
+'e2e4 e7e5 g1f3 b8c6 f1b5 g8f6 e1g1 f6e4 d2d4 e4d6',
+'e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 g8f6 d4c6 b7c6',
+'e2e4 e7e5 g1f3 g8f6 f3e5 d7d6 e5f3 f6e4 d2d4 d6d5',
+'e2e4 c7c5 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 b1c3 a7a6',
+'e2e4 c7c5 g1f3 b8c6 d2d4 c5d4 f3d4 g8f6 b1c3 e7e5',
+'e2e4 c7c5 g1f3 e7e6 d2d4 c5d4 f3d4 a7a6',
+'e2e4 e7e6 d2d4 d7d5 b1c3 g8f6 c1g5 f8e7 e4e5 f6d7',
+'e2e4 e7e6 d2d4 d7d5 e4e5 c7c5 c2c3 b8c6 g1f3 d8b6',
+'e2e4 c7c6 d2d4 d7d5 b1c3 d5e4 c3e4 c8f5 e4g3 f5g6',
+'e2e4 c7c6 d2d4 d7d5 e4e5 c8f5 g1f3 e7e6',
+'e2e4 d7d5 e4d5 d8d5 b1c3 d5a5 d2d4 g8f6 g1f3 c8f5',
+'d2d4 d7d5 c2c4 e7e6 b1c3 g8f6 c1g5 f8e7 e2e3 e8g8 g1f3',
+'d2d4 d7d5 c2c4 d5c4 g1f3 g8f6 e2e3 e7e6 f1c4 c7c5',
+'d2d4 d7d5 c2c4 c7c6 g1f3 g8f6 b1c3 d5c4 a2a4 c8f5',
+'d2d4 g8f6 c2c4 g7g6 b1c3 f8g7 e2e4 d7d6 g1f3 e8g8 f1e2 e7e5',
+'d2d4 g8f6 c2c4 e7e6 b1c3 f8b4 e2e3 e8g8 f1d3 d7d5',
+'d2d4 g8f6 c2c4 e7e6 g1f3 b7b6 g2g3 c8b7 f1g2 f8e7',
+'d2d4 d7d5 c1f4 g8f6 e2e3 e7e6 g1f3 c7c5 c2c3 b8c6',
+'c2c4 e7e5 b1c3 g8f6 g1f3 b8c6 g2g3 d7d5',
+'c2c4 c7c5 g1f3 g8f6 b1c3 b8c6 g2g3 g7g6 f1g2 f8g7',
+'g1f3 d7d5 g2g3 g8f6 f1g2 e7e6 e1g1 f8e7 d2d3 e8g8'
+].map(l=>l.split(' '));
+
+/* Buchzüge für die gespielte Zugfolge (nur ab Grundstellung) */
+function bookMoves(codes,maxPly){
+  if(codes===null||codes.length>=maxPly) return [];
+  const out=new Set();
+  for(const l of BOOK){
+    if(l.length<=codes.length) continue;
+    let ok=true; for(let i=0;i<codes.length;i++) if(l[i]!==codes[i]){ok=false;break;}
+    if(ok) out.add(l[codes.length]);
+  }
+  return [...out];
+}
+
+/* ---------- Spielstärken ----------
+   Anfänger: sieht nur einen Halbzug weit, bewertet grob und patzt öfter.
+   Leicht:   zwei Halbzüge, nimmt freie Figuren, übersieht tiefere Taktik.
+   Mittel:   vier Halbzüge plus Schlagabtausch, kaum grobe Fehler.
+   Stark:    so tief wie in 3 Sekunden möglich, findet mehrzügige Matts. */
+const LEVELS={
+  1:{name:'Anfänger',depth:1,time:300,q:2,full:true,noise:140,blunder:0.10,missMate:0.7,book:4,nullMove:false},
+  2:{name:'Leicht',depth:2,time:700,q:6,full:true,noise:45,blunder:0.03,missMate:0.4,book:8,nullMove:false},
+  3:{name:'Mittel',depth:4,time:1500,q:16,full:false,noise:0,blunder:0,book:12},
+  4:{name:'Stark',depth:30,time:3000,q:16,full:false,noise:0,blunder:0,book:16}
+};
+
+/* ctx: {keys: frühere Stellungsschlüssel, codes: Zugfolge ab Grundstellung oder null} */
+function think(st,lv,ctx){
+  ctx=ctx||{keys:[],codes:null};
+  const cfg=LEVELS[lv];
+  const legal=legalMoves(st);
+  if(legal.length===1) return legal[0];
+  const bm=bookMoves(ctx.codes,cfg.book);
+  if(bm.length){ const c=bm[Math.floor(Math.random()*bm.length)]; const m=legal.find(x=>moveCode(x)===c); if(m) return m; }
+  const res=rootSearch(st,cfg,ctx.keys);
+  if(!cfg.noise||!res.scores) return res.move;
+  const list=[...res.scores.entries()];
+  /* gelegentlicher Patzer: ein zufälliger Zug aus der schlechteren Hälfte */
+  if(Math.random()<cfg.blunder){
+    list.sort((a,b)=>b[1]-a[1]);
+    const half=list.slice(Math.floor(list.length/2));
+    return half[Math.floor(Math.random()*half.length)][0];
+  }
+  /* Matt wird nie übersehen, wenn es direkt auf dem Brett steht */
+  let pick=null,ps=-INF;
+  for(let [m,s] of list){
+    /* Matt in 1 wird gesehen; längere Mattführungen übersehen schwache Stufen öfter */
+    if(s>MATE-1000){ if(MATE-s<=1) return m; if(Math.random()<cfg.missMate) s=300; }
+    const v=s+Math.random()*cfg.noise;
+    if(v>ps){ps=v;pick=m;}
+  }
+  return pick;
+}
+
+/* ---------- Notation & Spielende ---------- */
+function san(st,m,legal){
+  let s;
+  if(m.flag==='OO') s='0-0';
+  else if(m.flag==='OOO') s='0-0-0';
+  else{
+    const t=up(m.piece); s='';
+    if(t!=='P'){
+      s=DE[t];
+      const others=legal.filter(x=>x.to===m.to&&x.from!==m.from&&x.piece===m.piece);
+      if(others.length){
+        const sameFile=others.some(x=>(x.from&7)===(m.from&7));
+        const sameRank=others.some(x=>(x.from>>3)===(m.from>>3));
+        if(!sameFile) s+='abcdefgh'[m.from&7];
+        else if(!sameRank) s+=(8-(m.from>>3));
+        else s+=sqName(m.from);
+      }
+    }
+    if(m.cap){ if(t==='P') s+='abcdefgh'[m.from&7]; s+='x'; }
+    s+=sqName(m.to);
+    if(m.promo) s+='='+DE[up(m.promo)];
+  }
+  const n=makeMove(st,m);
+  if(inCheck(n)) s+=legalMoves(n).length?'+':'#';
+  return s;
+}
+function insufficient(b){
+  const rest=b.filter(p=>p&&up(p)!=='K');
+  if(rest.length===0) return true;
+  if(rest.length===1&&(up(rest[0])==='N'||up(rest[0])==='B')) return true;
+  return false;
+}
+
+/* ---------- Coach: Zugbewertung ---------- */
+const QUAL={
+  book:{label:'Buchzug',cls:'q-book',icon:''},
+  best:{label:'Bester Zug',cls:'q-best',icon:'★'},
+  good:{label:'Guter Zug',cls:'q-good',icon:'✓'},
+  only:{label:'Einziger Zug',cls:'q-only',icon:'1'},
+  inacc:{label:'Ungenau',cls:'q-inacc',icon:'?!'},
+  mistake:{label:'Fehler',cls:'q-mist',icon:'?'},
+  blunder:{label:'Grober Fehler',cls:'q-blun',icon:'??'}
+};
+const QORDER=['book','best','good','only','inacc','mistake','blunder'];
+const BOOK_SVG='<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M1.5 3.2c2.2-.9 4.4-.8 6 .6v9.4c-1.6-1.2-3.8-1.3-6-.5zM14.5 3.2c-2.2-.9-4.4-.8-6 .6v9.4c1.6-1.2 3.8-1.3 6-.5z" fill="currentColor"/></svg>';
+function qIcon(q){
+  const d=QUAL[q]; if(!d) return '';
+  return '<span class="qi '+d.cls+'" role="img" title="'+d.label+'" aria-label="'+d.label+'">'+(q==='book'?BOOK_SVG:d.icon)+'</span>';
+}
+
+const winProb=cp=>1/(1+Math.exp(-Math.max(-3000,Math.min(3000,cp))/250));
+
+/* Bewertet einen Zug: vergleicht ihn mit dem besten Zug bei gleicher Suchtiefe. */
+function gradeMove(st,m,ctx,ms){
+  ctx=ctx||{keys:[],codes:null};
+  const code=moveCode(m), legal=legalMoves(st), out={code};
+  const after=makeMove(st,m);
+  if(ctx.codes&&bookMoves(ctx.codes,16).includes(code)){ out.q='book'; return out; }
+  if(legal.length===1){ out.q='only'; return out; }
+  TT.clear();
+  const r=rootSearch(st,{depth:30,time:ms,q:16},ctx.keys||[]);
+  out.best=r.move; out.bestScore=r.score; out.depth=r.depth;
+  let played;
+  if(isMated(after)) played=MATE-1;
+  else if(moveId(r.move)===moveId(m)) played=r.score;
+  else{
+    const base=(ctx.keys||[]).concat([st.key,after.key]);
+    try{ deadline=Date.now()+ms*2; path=base.slice(); played=-negamax(after,Math.max(0,r.depth-1),-INF,INF,1,true); }
+    catch(e){ if(e!==TIMEOUT) throw e; deadline=Date.now()+1000; path=base.slice(); played=-negamax(after,0,-INF,INF,1,true); }
+  }
+  out.played=played;
+  const loss=Math.max(0,r.score-played), wpl=winProb(r.score)-winProb(played);
+  out.loss=loss;
+  if(isMated(after)||moveId(r.move)===moveId(m)||loss<=10) out.q='best';
+  else if(wpl<0.05) out.q='good';
+  else if(wpl<0.10) out.q='inacc';
+  else if(wpl<0.20) out.q='mistake';
+  else out.q='blunder';
+  return out;
+}
+
+/* ---------- Coach: Bausteine für Kommentare ---------- */
+const ACC_A={Q:'die Dame',R:'einen Turm',B:'einen Läufer',N:'einen Springer',P:'einen Bauern'};
+const POSS_NOM={Q:'deine Dame',R:'dein Turm',B:'dein Läufer',N:'dein Springer',P:'dein Bauer',K:'dein König'};
+const POSS_ACC={Q:'deine Dame',R:'deinen Turm',B:'deinen Läufer',N:'deinen Springer',P:'deinen Bauern',K:'deinen König'};
+const OPP_ACC={Q:'die gegnerische Dame',R:'den gegnerischen Turm',B:'den gegnerischen Läufer',N:'den gegnerischen Springer',P:'den gegnerischen Bauern'};
+const DEF_NOM={Q:'die Dame',R:'der Turm',B:'der Läufer',N:'der Springer',P:'der Bauer'};
+const PROMO_TO={Q:'zur Dame',R:'zum Turm',B:'zum Läufer',N:'zum Springer'};
+const cap1=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+
+/* Figuren einer Farbe, die ungedeckt angegriffen oder von einer billigeren Figur bedroht sind */
+function hangingPieces(b,col){
+  const opp=other(col), out=[];
+  for(let i=0;i<64;i++){
+    const p=b[i]; if(!p||colorOf(p)!==col||up(p)==='K') continue;
+    const att=attackersOf(b,i,opp); if(!att.length) continue;
+    const def=attackersOf(b,i,col);
+    const minAtt=Math.min(...att.map(a=>VAL[up(b[a])]));
+    if(!def.length||minAtt<VAL[up(p)]) out.push({sq:i,t:up(p),by:att,undefended:!def.length});
+  }
+  return out.sort((a,b)=>VAL[b.t]-VAL[a.t]);
+}
+
+const OPEN_MINE={
+  best:['Sehr schön! ⟦%⟧ ist der beste Zug.','Genau so! ⟦%⟧ ist richtig stark.','Perfekt, ⟦%⟧. Besser geht es nicht.','Klasse! Mit ⟦%⟧ triffst du den besten Zug.'],
+  good:['Gut gespielt, ⟦%⟧.','⟦%⟧ ist ein solider Zug.','Ordentlich! ⟦%⟧ passt gut.'],
+  book:['⟦%⟧, ein bewährter Eröffnungszug.','Prima, ⟦%⟧ steht so im Lehrbuch.','⟦%⟧. So spielen das auch die Profis.'],
+  only:['⟦%⟧ war hier der einzige erlaubte Zug.'],
+  inacc:['Hm, ⟦%⟧ ist etwas ungenau.','⟦%⟧ geht, aber da war mehr drin.','Nicht schlecht, aber ⟦%⟧ ist nicht ganz optimal.'],
+  mistake:['Oh, ⟦%⟧ ist leider ein Fehler.','Achtung, ⟦%⟧ war ein Fehler.'],
+  blunder:['Oh nein, ⟦%⟧ ist ein grober Fehler.','Vorsicht! ⟦%⟧ kostet dich viel.']
+};
+const OPEN_OPP={
+  best:['Ein starker Zug.','Gut gespielt vom Computer.'],
+  good:['Ein ordentlicher Zug.','Solide.'],
+  book:['Ein bekannter Eröffnungszug.','Ganz nach Lehrbuch.'],
+  only:[''],
+  inacc:['Der Zug ist etwas ungenau.','Nicht ganz präzise.'],
+  mistake:['Das ist ein Fehler! Schau mal, ob du ihn ausnutzen kannst.','Hier hat der Computer gepatzt. Findest du die Strafe?'],
+  blunder:['Ein grober Fehler! Jetzt ist deine Chance.','Autsch, das war ein dicker Fehler. Such nach deinem besten Zug!']
+};
+
+/* Kommentar zu einem Zug. mine=true: der Zug von dir. reveal=false: keinen besseren Zug verraten. */
+function describeMove(st,m,g,o){
+  const legal=legalMoves(st), sanS=san(st,m,legal), after=makeMove(st,m);
+  const me=st.turn, opp=other(me), t=up(m.piece), q=g&&g.q;
+  const mate=isMated(after), stale=!mate&&!legalMoves(after).length;
+  const head=o.mine?pick(OPEN_MINE[q]||['Du spielst ⟦%⟧.']).replace('%',sanS)
+                   :('Der Computer spielt ⟦'+sanS+'⟧.'+(OPEN_OPP[q]&&pick(OPEN_OPP[q])?' '+pick(OPEN_OPP[q]):''));
+  const H=o.noHead?'':head+' ';
+  if(mate) return {san:sanS,text:H+(o.mine?'Schachmatt! Glückwunsch, du hast gewonnen!':'Schachmatt.')};
+  if(stale) return {san:sanS,text:H+'Patt, die Partie endet remis.'+(o.mine&&g&&g.bestScore>300?' Mit deinem Vorsprung wäre mehr drin gewesen. Lass dem Gegner immer ein Feld, bis du mattsetzt.':'')};
+
+  const facts=[];
+  const chk=inCheck(after);
+  if(chk) facts.push(o.mine?'Damit gibst du Schach.':'Achtung, Schach! Bring deinen König in Sicherheit.');
+  if(m.cap) facts.push(o.mine?'Du schlägst '+(ACC_A[up(m.cap)]||'eine Figur')+'.':'Er schlägt '+POSS_ACC[up(m.cap)]+'.');
+  if(m.flag==='OO'||m.flag==='OOO') facts.push(o.mine?'Mit der Rochade bringst du deinen König in Sicherheit.':'Der Computer bringt seinen König mit der Rochade in Sicherheit.');
+  if(m.promo) facts.push(o.mine?'Dein Bauer wird '+PROMO_TO[up(m.promo)]+'.':'Sein Bauer wird '+PROMO_TO[up(m.promo)]+'.');
+
+  if(o.mine){
+    const mine=hangingPieces(after.b,me);
+    if(mine.length){
+      const h=mine[0];
+      if(h.sq===m.to&&m.cap&&VAL[up(m.cap)]>=VAL[t]) facts.push('Das ist ein Abtausch.');
+      else facts.push('Achtung: '+POSS_NOM[h.t]+' auf '+sqName(h.sq)+(h.undefended?' steht ungeschützt und wird angegriffen.':' kann von einer schwächeren Figur geschlagen werden.'));
+    }
+    const tg=hangingPieces(after.b,opp).filter(x=>x.by.includes(m.to));
+    if(tg.length&&!chk) facts.push(cap1(POSS_NOM[up(m.promo||m.piece)])+' greift jetzt '+OPP_ACC[tg[0].t]+' an.');
+    if(st.full<=10&&!m.cap&&!m.flag){
+      const backRank=(m.from>>3)===(me==='w'?7:0);
+      if((t==='N'||t==='B')&&backRank) facts.push('Schön, du bringst eine Figur ins Spiel. Genau das ist jetzt wichtig.');
+      else if(t==='P'&&((m.to&7)===3||(m.to&7)===4)&&st.full<=4) facts.push('Der Bauer kämpft um die Mitte, sehr gut.');
+      else if(t==='Q'&&st.full<=6) facts.push('Die Dame kommt sehr früh raus. Pass auf, kleinere Figuren können sie jetzt jagen.');
+      else if(t==='K'&&(me==='w'?(st.cr.K||st.cr.Q):(st.cr.k||st.cr.q))) facts.push('Der König verliert dadurch das Rochaderecht.');
+      else if(t==='P'&&[0,7].includes(m.from&7)) facts.push('Randbauernzüge bringen in der Eröffnung meist wenig.');
+    }
+  } else {
+    const mine=hangingPieces(after.b,opp);
+    if(mine.length&&!chk){ const h=mine[0]; facts.push('Pass auf, '+POSS_NOM[h.t]+' auf '+sqName(h.sq)+(h.undefended?' ist ungedeckt und wird angegriffen.':' wird von einer schwächeren Figur angegriffen.')); }
+    const his=hangingPieces(after.b,me);
+    if(his.length&&!chk) facts.push(cap1(DEF_NOM[his[0].t])+' auf '+sqName(his[0].sq)+' steht angreifbar. Siehst du das?');
+  }
+
+  const out=(o.noHead?[]:[head]).concat(facts.slice(0,3));
+  if(o.mine&&o.reveal&&g&&g.best&&['inacc','mistake','blunder'].includes(q)){
+    const bs=san(st,g.best,legal);
+    let why='.';
+    if(g.bestScore>MATE-1000){ const n=Math.ceil((MATE-g.bestScore)/2); why=n<=1?', das wäre sofort Matt gewesen.':', damit hättest du in '+n+' Zügen mattsetzen können.'; }
+    else if(g.best.cap) why=', damit hättest du '+(ACC_A[up(g.best.cap)]||'eine Figur')+' gewonnen.';
+    out.push('Besser war ⟦'+bs+'⟧'+why);
+    if(g.played<-MATE+1000) out.push('Jetzt kann dich der Gegner mattsetzen.');
+  }
+  return {san:sanS,text:out.join(' ')};
+}
+
+/* ---------- Coach: Brettanalyse ---------- */
+const PTS={P:1,N:3,B:3,R:5,Q:9};
+function analyzeBoard(st,ctx,me,reveal){
+  const legal=legalMoves(st), lines=[];
+  const side=c=>c==='w'?'Weiß':'Schwarz';
+  if(!legal.length){
+    lines.push(inCheck(st)?side(st.turn)+' ist schachmatt.':'Patt: '+side(st.turn)+' hat keinen Zug, steht aber nicht im Schach.');
+    return lines.join(' ');
+  }
+  TT.clear();
+  const r=rootSearch(st,{depth:30,time:900,q:16},(ctx&&ctx.keys)||[]);
+  const sw=st.turn==='w'?r.score:-r.score;
+  if(Math.abs(sw)>MATE-1000){
+    const n=Math.ceil((MATE-Math.abs(r.score))/2);
+    lines.push(side(sw>0?'w':'b')+' kann in '+n+(n===1?' Zug':' Zügen')+' mattsetzen.');
+  } else {
+    const a=Math.abs(sw), lead=side(sw>0?'w':'b');
+    lines.push(a<40?'Die Stellung ist ausgeglichen.':a<120?lead+' steht leicht besser.':a<300?lead+' steht deutlich besser.':lead+' steht auf Gewinn.');
+  }
+  let pw=0,pb=0;
+  for(const p of st.b) if(p&&up(p)!=='K'){ if(isW(p)) pw+=PTS[up(p)]; else pb+=PTS[up(p)]; }
+  const d=pw-pb;
+  lines.push(d===0?'Das Material ist ausgeglichen.':side(d>0?'w':'b')+' hat '+(Math.abs(d)===1?'einen Punkt':Math.abs(d)+' Punkte')+' mehr Material.');
+  if(inCheck(st)) lines.push(side(st.turn)+' steht im Schach.');
+  const mineH=hangingPieces(st.b,me), theirH=hangingPieces(st.b,other(me));
+  if(mineH.length) lines.push('In Gefahr: '+mineH.slice(0,2).map(h=>POSS_NOM[h.t]+' auf '+sqName(h.sq)).join(' und ')+'.');
+  if(theirH.length) lines.push('Angriffsziel beim Gegner: '+DEF_NOM[theirH[0].t]+' auf '+sqName(theirH[0].sq)+'.');
+  if(st.full<=15){
+    const und=c=>{let n=0; const row=c==='w'?7:0; for(let i=0;i<8;i++){const p=st.b[row*8+i]; if(p&&colorOf(p)===c&&(up(p)==='N'||up(p)==='B')) n++;} return n;};
+    const u=und(me);
+    if(u>0) lines.push(u===1?'Du hast noch eine Leichtfigur auf der Grundreihe.':'Du hast noch '+u+' Leichtfiguren auf der Grundreihe.');
+    const k=kingSq(st.b,me), kc=k&7, homeRow=me==='w'?7:0;
+    if((k>>3)===homeRow&&(kc===4||kc===3)&&(me==='w'?(st.cr.K||st.cr.Q):(st.cr.k||st.cr.q))) lines.push('Dein König steht noch in der Mitte. Denk an die Rochade.');
+  }
+  if(st.turn===me){
+    if(reveal) lines.push('Mein Vorschlag: ⟦'+san(st,r.move,legal)+'⟧.');
+    else lines.push('Den besten Zug verrate ich hier nicht. Nutze dafür den Tipp.');
+  }
+  return lines.join(' ');
+}
+
+/* ---------- Sprachausgabe ---------- */
+const Voice={on:false,voice:null,list:[],ok:typeof window!=='undefined'&&'speechSynthesis' in window&&typeof SpeechSynthesisUtterance!=='undefined',onList:null};
+/* Bewertung einer Stimme: Premium vor Erweitert vor Standard, lokal vor online */
+function voiceRank(v){
+  const id=(v.name+' '+(v.voiceURI||'')).toLowerCase();
+  let r=0;
+  if(/premium/.test(id)) r+=40;
+  else if(/erweitert|enhanced|neural|natural/.test(id)) r+=30;
+  if(v.localService) r+=10;
+  if(/de[-_]de/i.test(v.lang)) r+=3;
+  if(/compact|kompakt|eloquence|grandma|grandpa|oma|opa|rocko|shelley|flo|reed|sandy/.test(id)) r-=25;
+  return r;
+}
+function voiceLabel(v){
+  let n=v.name.replace(/\s*\((Deutsch|German)[^)]*\)/i,'');
+  if(!v.localService) n+=' (braucht Internet)';
+  return n;
+}
+function pickVoice(){
+  if(!Voice.ok) return;
+  const de=speechSynthesis.getVoices().filter(v=>/^de([-_]|$)/i.test(v.lang));
+  de.sort((a,b)=>voiceRank(b)-voiceRank(a));
+  Voice.list=de;
+  if(!Voice.voice||!de.includes(Voice.voice)) Voice.voice=de[0]||null;
+  if(Voice.onList) Voice.onList();
+}
+if(Voice.ok){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; setTimeout(pickVoice,500); }
+
+/* Satz für Satz sprechen, mit passender Betonung */
+function splitSentences(t){
+  return t.replace(/\s+/g,' ').match(/[^.!?]+[.!?]+["“”]?|[^.!?]+$/g)?.map(x=>x.trim()).filter(Boolean)||[];
+}
+function toneOf(s){
+  if(/^(oh nein|autsch|vorsicht|achtung|pass auf|jetzt kann dich)/i.test(s)||/grober Fehler/i.test(s)) return {rate:.94,pitch:.92};
+  if(/^(sehr schön|genau so|perfekt|klasse|glückwunsch|schachmatt!|richtig|prima|super|gut verteidigt)/i.test(s)) return {rate:1.0,pitch:1.08};
+  if(/\?$/.test(s)) return {rate:.97,pitch:1.05};
+  return {rate:.97,pitch:1.0};
+}
+function speak(text,queue){
+  if(!Voice.on||!Voice.ok||!text) return;
+  if(!queue) speechSynthesis.cancel();
+  for(const sentence of splitSentences(text)){
+    const u=new SpeechSynthesisUtterance(sentence);
+    const t=toneOf(sentence);
+    u.lang=Voice.voice?Voice.voice.lang:'de-DE';
+    try{ if(Voice.voice) u.voice=Voice.voice; }catch(e){}
+    u.rate=t.rate; u.pitch=t.pitch;
+    try{ speechSynthesis.speak(u); }catch(e){}
+  }
+}
+
+/* Schachnotation in gesprochene Sprache übersetzen */
+const SQ_SPOKEN=s=>s.replace(/([a-h])([1-8])/g,(_,f,r)=>f+' '+r);
+function sanSpeak(s){
+  let tail='';
+  if(s.endsWith('#')){tail=', Schachmatt'; s=s.slice(0,-1);}
+  else if(s.endsWith('+')){tail=', mit Schach'; s=s.slice(0,-1);}
+  if(s==='0-0') return 'kurze Rochade'+tail;
+  if(s==='0-0-0') return 'lange Rochade'+tail;
+  const PN={K:'König',D:'Dame',T:'Turm',L:'Läufer',S:'Springer'};
+  let piece='';
+  if(PN[s[0]]){ piece=PN[s[0]]; s=s.slice(1); }
+  let promo='';
+  s=s.replace(/=([DTLS])/,(_,p)=>{promo=' und wird '+PROMO_TO[{D:'Q',T:'R',L:'B',S:'N'}[p]];return '';});
+  const m=s.match(/^([a-h]?[1-8]?)(x?)([a-h][1-8])$/);
+  if(!m) return (piece+' '+SQ_SPOKEN(s)+promo+tail).trim();
+  const [,from,cap,to]=m;
+  let out;
+  if(piece) out=piece+(from?' von '+SQ_SPOKEN(from):'')+(cap?' schlägt auf ':' nach ')+SQ_SPOKEN(to);
+  else out=cap?'Bauer von '+from+' schlägt auf '+SQ_SPOKEN(to):'Bauer nach '+SQ_SPOKEN(to);
+  return out+promo+tail;
+}
+const TOK=/⟦([^⟧]*)⟧/g;
+const tokHtml=s=>s.replace(TOK,'<b class="san">$1</b>');
+const stripTags=s=>s.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+const tokSpeech=s=>stripTags(s.replace(TOK,(_,x)=>sanSpeak(x))).replace(/[„“]/g,'').replace(/\s–\s/g,', ').replace(/\b0-0-0\b/g,'lange Rochade').replace(/\b0-0\b/g,'kurze Rochade').replace(/\b([a-h])([1-8])\b/g,'$1 $2');
+
+/* ---------- Lerninhalte ---------- */
+
+const TOPICS=[
+  {id:'eroeffnung',name:'Eröffnung',desc:'Gut ins Spiel starten'},
+  {id:'matt',name:'Mattbilder',desc:'Typische Muster, mit denen Partien enden'},
+  {id:'taktik',name:'Taktik',desc:'Doppelangriffe und andere Kniffe'},
+  {id:'endspiel',name:'Endspiel',desc:'Mit wenig Material sicher gewinnen'}
+];
+
+const LESSONS=[
+/* ===== Eröffnung ===== */
+{topic:'eroeffnung',title:'Drei Grundregeln',steps:[
+  {type:'text',fen:START_FEN,text:
+    '<p>In den ersten Zügen einer Partie verfolgst du drei Ziele.</p>'+
+    '<p><b>1. Das Zentrum besetzen.</b> Die Felder d4, e4, d5 und e5 sind am wichtigsten. Figuren im Zentrum haben die meisten Zugmöglichkeiten.</p>'+
+    '<p><b>2. Figuren entwickeln.</b> Bring Springer und Läufer von der Grundreihe ins Spiel. Ziehe dabei möglichst jede Figur nur einmal.</p>'+
+    '<p><b>3. Den König sichern.</b> Mit der Rochade stellst du den König hinter eine Bauernmauer und bringst gleichzeitig einen Turm ins Spiel.</p>'+
+    '<p>Hol die Dame nicht zu früh heraus. Sie wird sonst von kleineren Figuren gejagt, und du verlierst Zeit.</p>'},
+  {type:'puzzle',fen:START_FEN,task:'Ziehe einen Bauern ins Zentrum.',
+    lines:[['e2e4'],['d2d4']],
+    hint:'Gemeint sind die Bauern vor König und Dame.',
+    done:'Genau. Der Bauer besetzt das Zentrum und öffnet Wege für Läufer und Dame.'},
+  {type:'puzzle',fen:'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2',
+    task:'Schwarz hat ebenfalls ins Zentrum gezogen. Entwickle eine Leichtfigur, die dabei gleich den Bauern e5 angreift.',
+    lines:[['g1f3']],
+    hint:'Ein Springer kann das.',
+    done:'Sf3 entwickelt den Springer, greift e5 an und macht den Weg für die Rochade frei.'},
+  {type:'puzzle',fen:'r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4',
+    task:'Springer und Läufer sind entwickelt. Bring jetzt deinen König in Sicherheit.',
+    lines:[['e1g1']],
+    hint:'Ziehe den König zwei Felder in Richtung des Turms auf h1.',
+    done:'Kurze Rochade (0-0). Der König steht sicher hinter den Bauern, und der Turm ist auf dem Weg ins Spiel.'}
+]},
+{topic:'eroeffnung',title:'Italienische Partie',steps:[
+  {type:'demo',fen:START_FEN,
+    intro:'<p>Die Italienische Partie ist eine der ältesten Eröffnungen und ideal für den Einstieg: schnelle Entwicklung, klare Ideen. Klicke dich mit „Zug vor“ durch die Züge.</p>',
+    moves:[
+      ['e2e4','Weiß besetzt das Zentrum.'],
+      ['e7e5','Schwarz hält im Zentrum dagegen.'],
+      ['g1f3','Der Springer entwickelt sich und greift e5 an.'],
+      ['b8c6','Schwarz deckt e5 mit dem Springer.'],
+      ['f1c4','Der Läufer zielt auf f7. Dieses Feld ist anfangs nur vom König gedeckt und damit der schwächste Punkt bei Schwarz.'],
+      ['f8c5','Schwarz antwortet mit derselben Idee: Der Läufer zielt auf f2.'],
+      ['c2c3','Weiß bereitet d4 vor, um das Zentrum auszubauen.'],
+      ['g8f6','Schwarz entwickelt den nächsten Springer und greift e4 an.'],
+      ['d2d4','Weiß öffnet das Zentrum. Beide Seiten werden bald rochieren.']
+    ],
+    outro:'<p>Merke dir das Muster: Springer nach f3, Läufer nach c4, dann Rochade und Zentrum mit c3 und d4.</p>'},
+  {type:'puzzle',fen:'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3',
+    task:'Spiele den typischen Läuferzug der Italienischen Partie.',
+    lines:[['f1c4']],
+    hint:'Der Läufer soll auf f7 zielen.',
+    done:'Richtig, Lc4. Der Läufer steht aktiv und nimmt f7 ins Visier.'}
+]},
+{topic:'eroeffnung',title:'Spanische Partie',steps:[
+  {type:'demo',fen:START_FEN,
+    intro:'<p>Die Spanische Partie gehört zu den beliebtesten Eröffnungen bis in die Weltspitze. Weiß setzt den Springer unter Druck, der den Bauern e5 deckt.</p>',
+    moves:[
+      ['e2e4','Weiß besetzt das Zentrum.'],
+      ['e7e5','Schwarz hält dagegen.'],
+      ['g1f3','Angriff auf e5.'],
+      ['b8c6','Schwarz deckt e5.'],
+      ['f1b5','Das Kennzeichen der Spanischen Partie: Der Läufer greift den Verteidiger von e5 an.'],
+      ['a7a6','Schwarz stellt den Läufer sofort zur Rede.'],
+      ['b5a4','Weiß zieht zurück und behält den Druck auf c6 bei.'],
+      ['g8f6','Schwarz entwickelt und greift dabei e4 an.'],
+      ['e1g1','Weiß rochiert früh und bringt den König in Sicherheit.'],
+      ['f8e7','Schwarz entwickelt den Läufer und bereitet die eigene Rochade vor.']
+    ],
+    outro:'<p>Die Spanische Partie ist ruhiger als die Italienische. Weiß sammelt langsam Vorteile im Zentrum.</p>'}
+]},
+{topic:'eroeffnung',title:'Damengambit',steps:[
+  {type:'demo',fen:START_FEN,
+    intro:'<p>Wenn Weiß mit dem Damenbauern beginnt, ist das Damengambit die bekannteste Fortsetzung. Ein Gambit ist ein Bauernopfer für Zeit oder Zentrum.</p>',
+    moves:[
+      ['d2d4','Weiß besetzt das Zentrum mit dem Damenbauern.'],
+      ['d7d5','Schwarz hält dagegen.'],
+      ['c2c4','Das Gambit: Weiß bietet den c-Bauern an, um Schwarz vom Zentrum abzulenken.'],
+      ['e7e6','Abgelehntes Damengambit: Schwarz stützt d5 und öffnet dem Läufer f8 den Weg.'],
+      ['b1c3','Weiß erhöht den Druck auf d5.'],
+      ['g8f6','Schwarz deckt d5 ein weiteres Mal.'],
+      ['c1g5','Der Läufer fesselt den Springer f6 an die Dame.']
+    ],
+    outro:'<p>Nimmt Schwarz den Bauern mit dxc4 an, gewinnt Weiß ihn meist mit e3 und Lxc4 zurück. Ein echtes Opfer ist das Damengambit also selten.</p>'}
+]},
+{topic:'eroeffnung',title:'Eröffnungsfallen',steps:[
+  {type:'demo',fen:START_FEN,
+    intro:'<p>Das Schäfermatt ist die bekannteste Falle für Einsteiger:innen. Wer sie kennt, fällt nicht darauf herein.</p>',
+    moves:[
+      ['e2e4','Ein normaler Start.'],
+      ['e7e5','Schwarz antwortet symmetrisch.'],
+      ['f1c4','Der Läufer zielt auf f7.'],
+      ['b8c6','Schwarz entwickelt.'],
+      ['d1h5','Die Dame greift f7 zum zweiten Mal an, außerdem e5.'],
+      ['g8f6','Ein Fehler: Schwarz greift die Dame an, übersieht aber die Drohung auf f7.'],
+      ['h5f7','Schachmatt. Die Dame ist durch den Läufer gedeckt, der König kann sie nicht schlagen.']
+    ],
+    outro:'<p>Lehre: Achte in der Eröffnung immer auf f7 bzw. f2.</p>'},
+  {type:'puzzle',fen:'r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3',
+    task:'Du spielst Schwarz. Weiß droht Dxf7 matt. Verhindere das Matt.',
+    goal:'defend',strict:true,lines:[['g7g6'],['d8e7'],['d8f6']],
+    hint:'Du kannst f7 ein zweites Mal decken oder die Dame vertreiben.',
+    done:'Gut verteidigt, Dxf7 matt ist nicht mehr möglich. Besonders stark ist g6: Die Dame muss sofort wieder ziehen.'},
+  {type:'puzzle',fen:'rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq g3 0 2',
+    task:'Weiß hat f3 und g4 gespielt. Du spielst Schwarz: Setze matt in einem Zug.',
+    goal:'mate',lines:[['d8h4']],
+    hint:'Die Diagonale zum weißen König ist offen.',
+    done:'Das Narrenmatt, das kürzeste Matt überhaupt. Lehre: Schwäche die Bauern vor deinem König nicht ohne Grund.'}
+]},
+
+/* ===== Mattbilder ===== */
+{topic:'matt',title:'Grundreihenmatt',steps:[
+  {type:'puzzle',fen:'6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1',
+    intro:'<p>Steht ein König hinter seinen eigenen Bauern, hat er oft kein Fluchtfeld. Ein Turm oder eine Dame auf der Grundreihe setzt dann matt.</p>',
+    task:'Setze matt in einem Zug.',
+    goal:'mate',lines:[['a1a8']],
+    hint:'Die achte Reihe ist offen.',
+    done:'Ta8 matt. Die eigenen Bauern versperren dem König die Flucht.'},
+  {type:'puzzle',fen:'6k1/5ppp/8/8/8/8/5PPP/R5K1 b - - 0 1',
+    task:'Jetzt spielst du Schwarz. Weiß droht Ta8 matt. Schütze deinen König.',
+    goal:'defend',lines:[['h7h6']],
+    hint:'Gib deinem König ein Fluchtfeld.',
+    done:'Richtig. Ein „Luftloch“ wie h6 gibt dem König ein Fluchtfeld. Viele Spieler:innen ziehen es vorsorglich, sobald die Grundreihe gefährlich wird.'}
+]},
+{topic:'matt',title:'Matt mit der Dame',steps:[
+  {type:'puzzle',fen:'6k1/8/6K1/8/8/8/8/Q7 w - - 0 1',
+    intro:'<p>Die Dame setzt besonders gut matt, wenn der eigene König sie unterstützt. Steht die Dame direkt neben dem gegnerischen König und ist gedeckt, kann er sie nicht schlagen.</p>',
+    task:'Setze matt in einem Zug.',
+    goal:'mate',lines:[['a1g7']],
+    hint:'Der weiße König deckt die Felder vor dem schwarzen König.',
+    done:'Matt. Die Dame direkt vor dem König, gedeckt vom eigenen König: ein Muster, das du oft sehen wirst.'},
+  {type:'puzzle',fen:'k7/8/1K6/8/8/8/7Q/8 w - - 0 1',
+    task:'Noch einmal: Setze matt in einem Zug.',
+    goal:'mate',lines:[['h2h8']],
+    hint:'Der schwarze König steht in der Ecke. Welche Felder deckt dein König schon?',
+    done:'Matt. Der König in der Ecke hat kaum Fluchtfelder.'}
+]},
+{topic:'matt',title:'Ersticktes Matt',steps:[
+  {type:'puzzle',fen:'6rk/6pp/8/6N1/8/8/8/6K1 w - - 0 1',
+    intro:'<p>Beim erstickten Matt ist der König von den eigenen Figuren eingemauert. Ein Springer setzt matt, denn sein Schach kann man nicht abblocken.</p>',
+    task:'Setze matt in einem Zug.',
+    goal:'mate',lines:[['g5f7']],
+    hint:'Welches Feld erreicht der Springer, von dem aus er h8 angreift?',
+    done:'Sf7 matt. Turm und Bauern nehmen dem König alle Fluchtfelder.'}
+]},
+{topic:'matt',title:'Treppenmatt mit zwei Türmen',steps:[
+  {type:'puzzle',fen:'4k3/8/8/8/8/8/R7/1R4K1 w - - 0 1',
+    intro:'<p>Zwei Türme setzen ohne Hilfe des Königs matt. Ein Turm sperrt eine Reihe ab, der andere gibt auf der nächsten Reihe Schach. So schieben sie den König Stufe für Stufe an den Rand.</p>',
+    task:'Setze matt in zwei Zügen.',
+    goal:'mate',lines:[['a2a7','e8f8','b1b8'],['b1b7','e8f8','a2a8']],
+    hint:'Sperre zuerst mit einem Turm die siebte Reihe ab.',
+    done:'Matt. Ein Turm sperrt die siebte Reihe, der andere gibt auf der achten Schach.'}
+]},
+
+/* ===== Taktik ===== */
+{topic:'taktik',title:'Die Gabel',steps:[
+  {type:'puzzle',fen:'q3k3/8/1P6/1N6/8/8/8/4K3 w - - 0 1',
+    intro:'<p>Bei einer Gabel greift eine Figur zwei gegnerische Figuren gleichzeitig an. Der Gegner kann nur eine retten. Springer sind dafür besonders geeignet.</p>',
+    task:'Gewinne die schwarze Dame.',
+    lines:[['b5c7','e8d7','c7a8']],
+    hint:'Suche ein Feld, von dem aus der Springer König und Dame zugleich angreift.',
+    done:'Sc7+ greift König und Dame an. Der König muss weichen, danach schlägt der Springer die Dame. Der Bauer b6 hat das Feld c7 gedeckt, deshalb konnte der König den Springer nicht schlagen.'},
+  {type:'puzzle',fen:'7k/5pp1/2n1n2p/8/3P4/7P/5PP1/R5K1 w - - 0 1',
+    intro:'<p>Auch ein einfacher Bauer kann eine Gabel spielen.</p>',
+    task:'Gewinne eine Figur mit einem Bauernzug.',
+    lines:[['d4d5','c6d8','d5e6']],
+    hint:'Ein Bauer schlägt schräg nach vorn. Welche zwei Felder greift er nach einem Schritt an?',
+    done:'d5 greift beide Springer gleichzeitig an. Schwarz kann nur einen retten. Selbst wenn Schwarz zurückschlägt, hast du eine Figur für einen Bauern gewonnen.'}
+]},
+{topic:'taktik',title:'Die Fesselung',steps:[
+  {type:'puzzle',fen:'4k3/8/2q5/8/P7/3B4/8/4K3 w - - 0 1',
+    intro:'<p>Bei einer Fesselung steht eine Figur vor einer wertvolleren. Darf sie nicht ziehen, weil sonst der König im Schach stünde, ist die Fesselung absolut.</p>',
+    task:'Fessle die schwarze Dame und gewinne sie.',
+    lines:[['d3b5','c6b5','a4b5']],
+    hint:'Dame und König stehen auf derselben Diagonale.',
+    done:'Lb5 fesselt die Dame an den König. Sie kann nur noch den gedeckten Läufer schlagen und geht danach verloren.'}
+]},
+{topic:'taktik',title:'Der Spieß',steps:[
+  {type:'puzzle',fen:'8/8/B7/3k4/8/8/2K5/7q w - - 0 1',
+    intro:'<p>Der Spieß ist eine umgekehrte Fesselung: Die wertvollere Figur steht vorn, meist der König. Weicht sie aus, fällt die Figur dahinter.</p>',
+    task:'Gewinne die schwarze Dame.',
+    lines:[['a6b7','d5e5','b7h1']],
+    hint:'König und Dame stehen auf derselben langen Diagonale.',
+    done:'Lb7+ gibt Schach. Der König muss weichen, dann schlägt der Läufer die Dame auf h1.'}
+]},
+
+/* ===== Endspiel ===== */
+{topic:'endspiel',title:'König und Dame gegen König',steps:[
+  {type:'text',fen:'8/8/8/4k3/8/8/8/3QK3 w - - 0 1',text:
+    '<p>Mit König und Dame gegen den nackten König gewinnst du immer. So gehst du vor:</p>'+
+    '<p><b>1. Einengen.</b> Ziehe die Dame so, dass sie dem König einen immer kleineren Bereich lässt, etwa im Springerabstand zu ihm.</p>'+
+    '<p><b>2. Den eigenen König holen.</b> Steht der gegnerische König am Rand, bring deinen König heran.</p>'+
+    '<p><b>3. Mattsetzen.</b> Mit Unterstützung des Königs setzt die Dame am Rand matt.</p>'+
+    '<p><b>Achtung Patt:</b> Hat der Gegner keinen Zug, steht aber nicht im Schach, endet die Partie remis. Lass ihm immer mindestens ein Feld, bis du mattsetzt.</p>'},
+  {type:'puzzle',fen:'k7/2Q5/1K6/8/8/8/8/8 w - - 0 1',
+    task:'Setze matt in einem Zug.',
+    goal:'mate',lines:[['c7b7']],
+    hint:'Der schwarze König hat schon jetzt keinen Zug. Ein falscher Zug ohne Schach wäre patt.',
+    done:'Matt. Hättest du kein Schach gegeben, wäre die Partie patt und damit remis.'},
+  {type:'practice',fen:'8/8/8/4k3/8/8/8/3QK3 w - - 0 1',label:'Übung: König und Dame gegen König',
+    text:'<p>Jetzt du: Setze den schwarzen König gegen den Computer matt. Dafür hast du 50 Züge Zeit, das reicht locker. Der Coach bewertet dabei jeden deiner Züge.</p>'}
+]},
+{topic:'endspiel',title:'König und Turm gegen König',steps:[
+  {type:'text',fen:'8/8/8/4k3/8/8/8/R3K3 w - - 0 1',text:
+    '<p>Mit dem Turm dauert es länger, das Prinzip ist aber ähnlich: Der Turm sperrt eine Reihe oder Linie ab, der eigene König drängt den gegnerischen König zurück.</p>'+
+    '<p>Mattsetzen kannst du nur am Rand, und nur wenn sich die Könige gegenüberstehen. Dann gibt der Turm auf der Randreihe Schach.</p>'+
+    '<p>Steht der Turm in Reichweite des gegnerischen Königs, ziehe ihn weit weg, aber auf derselben Reihe oder Linie.</p>'},
+  {type:'puzzle',fen:'4k3/8/4K3/8/8/8/8/R7 w - - 0 1',
+    task:'Die Könige stehen sich gegenüber. Setze matt.',
+    goal:'mate',lines:[['a1a8']],
+    hint:'Der Turm braucht die Randreihe.',
+    done:'Ta8 matt. Dein König deckt die siebte Reihe, der Turm die achte.'},
+  {type:'practice',fen:'8/8/8/4k3/8/8/8/R3K3 w - - 0 1',label:'Übung: König und Turm gegen König',
+    text:'<p>Setze den König jetzt selbst matt. Lass dir Zeit, das braucht einige Züge. Der Coach begleitet dich.</p>'}
+]},
+{topic:'endspiel',title:'Die Quadratregel',steps:[
+  {type:'demo',fen:'8/8/8/8/P6k/8/8/K7 w - - 0 1',
+    intro:'<p>Kann ein König einen Freibauern noch einholen? Die Quadratregel beantwortet das ohne Rechnen: Zeichne ein Quadrat vom Bauern bis zur Umwandlungsreihe. Steht der König darin (oder kann er hineinziehen, wenn er am Zug ist), holt er den Bauern ein.</p>',
+    moves:[
+      ['a4a5','Das Quadrat des Bauern auf a4 reicht bis zur e-Linie. Der König auf h4 stand außerhalb.'],
+      ['h4g5','Der König läuft los ...'],
+      ['a5a6','Mit jedem Bauernzug schrumpft das Quadrat.'],
+      ['g5f6','... ist aber immer einen Schritt zu spät.'],
+      ['a6a7',''],
+      ['f6e7',''],
+      ['a7a8q','Der Bauer wird zur Dame.']
+    ],
+    outro:'<p>Ein Blick auf das Quadrat hätte gereicht, um das vorherzusagen.</p>'},
+  {type:'puzzle',fen:'8/8/8/8/P4k2/8/8/K7 b - - 0 1',
+    task:'Du spielst Schwarz und bist am Zug. Tritt mit dem König ins Quadrat des Bauern.',
+    lines:[['f4e5'],['f4e4']],
+    hint:'Das Quadrat reicht von a4 bis e8.',
+    done:'Richtig. Der König steht im Quadrat und holt den Bauern rechtzeitig ein.'}
+]},
+{topic:'endspiel',title:'Opposition',steps:[
+  {type:'text',fen:'8/8/4k3/8/4K3/8/8/8 w - - 0 1',text:
+    '<p>Stehen sich zwei Könige auf derselben Linie mit genau einem Feld Abstand gegenüber, spricht man von <b>Opposition</b>.</p>'+
+    '<p>Wer dabei <b>nicht</b> am Zug ist, hat die Opposition. Der andere König muss ausweichen und Felder freigeben. Hier ist Weiß am Zug, also hat Schwarz die Opposition.</p>'+
+    '<p>Für König und Bauer gegen König gilt die Faustregel: Bring deinen König vor den Bauern. Steht er auf der sechsten Reihe vor einem Bauern, der nicht am Rand steht, gewinnst du immer.</p>'},
+  {type:'practice',fen:'4k3/8/4K3/4P3/8/8/8/8 w - - 0 1',label:'Übung: König und Bauer gegen König',
+    text:'<p>Dein König steht auf der sechsten Reihe vor dem Bauern. Führe den Bauern zur Umwandlung und setze danach matt. Achte auf Patt.</p>'}
+]}
+];
+
+/* ---------- Hilfsfunktionen ---------- */
+const hasMateIn1=st=>legalMoves(st).some(m=>isMated(makeMove(st,m)));
+const sideName=c=>c==='w'?'Weiß':'Schwarz';
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+function moveLabel(st,s){ return st.turn==='w'?st.full+'. '+s:st.full+'. … '+s; }
+function resultOf(states,human){
+  const st=states[states.length-1];
+  if(!legalMoves(st).length){
+    if(inCheck(st)) return {text:(st.turn===human?'Schachmatt. Der Computer gewinnt.':'Schachmatt. Du gewinnst!'),win:st.turn!==human};
+    return {text:'Patt. Die Partie endet remis.'};
+  }
+  if(st.half>=100) return {text:'Remis nach der 50-Züge-Regel.'};
+  let n=0; for(const s of states) if(s.key===st.key) n++;
+  if(n>=3) return {text:'Remis durch dreifache Stellungswiederholung.'};
+  if(insufficient(st.b)) return {text:'Remis: Kein Mattmaterial mehr auf dem Brett.'};
+  return null;
+}
+
+/* ---------- Brett (wiederverwendbar) ---------- */
+function makeBoard(el,onClick){
+  const sqs=[];
+  for(let i=0;i<64;i++){
+    const btn=document.createElement('button');
+    btn.className='sq'; btn.type='button';
+    btn.addEventListener('click',()=>onClick(btn.dataset.sq|0));
+    el.appendChild(btn); sqs.push(btn);
+  }
+  return sqs;
+}
+function drawBoard(sqs,st,o){
+  const fl=!!o.flipped, last=o.last, sel=o.sel??-1, targets=o.targets||[];
+  const chkSq=inCheck(st)?kingSq(st.b,st.turn):-1;
+  for(let i=0;i<64;i++){
+    const sq=fl?63-i:i, el=sqs[i], p=st.b[sq], r=sq>>3, c=sq&7;
+    el.dataset.sq=sq;
+    let cls='sq '+(((r+c)&1)?'d':'l');
+    if(last&&(last.from===sq||last.to===sq)) cls+=o.wrong?' wrong':' last';
+    if(sq===sel||sq===o.mark) cls+=' sel';
+    if(sq===chkSq) cls+=' chk';
+    const tg=targets.find(m=>m.to===sq);
+    if(tg){cls+=' tgt'; if(p||tg.flag==='ep') cls+=' cap';}
+    el.className=cls;
+    let html='';
+    if(p) html+='<span class="pc '+colorOf(p)+'">'+GLYPH[up(p)]+VS+'</span>';
+    if(fl?c===7:c===0) html+='<span class="coord r">'+(8-r)+'</span>';
+    if(fl?r===0:r===7) html+='<span class="coord f">'+'abcdefgh'[c]+'</span>';
+    if(o.badge&&o.badge.q&&last&&sq===last.to) html+='<span class="badge">'+qIcon(o.badge.q)+'</span>';
+    el.innerHTML=html;
+    el.setAttribute('aria-label',sqName(sq)+(p?', '+(isW(p)?'weißer ':'schwarzer ')+NAME[up(p)]:', leer'));
+  }
+}
+function openPromo(overlay,color,choices,cb){
+  const box=overlay.querySelector('.promoBtns');
+  box.innerHTML='';
+  for(const t of ['Q','R','B','N']){
+    const m=choices.find(x=>up(x.promo)===t);
+    const b=document.createElement('button');
+    b.type='button';
+    b.innerHTML='<span class="pc '+color+'">'+GLYPH[t]+VS+'</span>';
+    b.setAttribute('aria-label',NAME[t]);
+    b.addEventListener('click',()=>{overlay.classList.remove('open'); cb(m);});
+    box.appendChild(b);
+  }
+  overlay.classList.add('open');
+  box.firstChild.focus();
+}
+
+/* ---------- Spielmodus ---------- */
+const game={states:[initState()],sans:[],moves:[],codes:[],human:'w',level:3,manualFlip:false,over:null,thinking:false,token:0,label:'',fromStart:true};
+let sel=-1, targets=[], promoOpen=false;
+const cur=()=>game.states[game.states.length-1];
+const statusEl=document.getElementById('status');
+const hintEl=document.getElementById('hint');
+const movesEl=document.getElementById('moves');
+const promoEl=document.getElementById('promo');
+const undoBtn=document.getElementById('undoBtn');
+const playSqs=makeBoard(document.getElementById('board'),onSquare);
+
+function moveRows(states,sans,quals){
+  if(!sans.length) return '<li class="empty">Noch keine Züge.</li>';
+  const s0=states[0]; let n=s0.full, i=0, h='';
+  const cell=k=>k<sans.length?'<span>'+esc(sans[k])+(quals?' '+(quals[k]?qIcon(quals[k]):'<span class="qi q-wait" aria-label="wird bewertet">…</span>'):'')+'</span>':'<span></span>';
+  if(s0.turn==='b'){ h+='<li><span class="n">'+n+'.</span><span>…</span>'+cell(0)+'</li>'; i=1; n++; }
+  for(;i<sans.length;i+=2){ h+='<li><span class="n">'+n+'.</span>'+cell(i)+cell(i+1)+'</li>'; n++; }
+  return h;
+}
+function capturedHtml(states){
+  const base={w:{P:0,N:0,B:0,R:0,Q:0},b:{P:0,N:0,B:0,R:0,Q:0}}, cnt={w:{P:0,N:0,B:0,R:0,Q:0},b:{P:0,N:0,B:0,R:0,Q:0}};
+  for(const p of states[0].b) if(p&&up(p)!=='K') base[colorOf(p)][up(p)]++;
+  for(const p of states[states.length-1].b) if(p&&up(p)!=='K') cnt[colorOf(p)][up(p)]++;
+  const f=col=>{let s=''; for(const t of ['Q','R','B','N','P']){ const k=Math.max(0,base[col][t]-cnt[col][t]); for(let i=0;i<k;i++) s+='<span class="pc '+col+'">'+GLYPH[t]+VS+'</span>'; } return s||'<span class="lbl">–</span>';};
+  return {w:f('w'),b:f('b')};
+}
+
+function renderPlay(){
+  const st=cur();
+  drawBoard(playSqs,st,{flipped:(game.human==='b')!==game.manualFlip,last:game.moves[game.moves.length-1],sel,targets});
+  statusEl.classList.toggle('thinking',game.thinking);
+  if(game.over){ statusEl.textContent=game.over.text; hintEl.textContent='Starte eine neue Partie oder nimm Züge zurück.'; }
+  else if(game.thinking){ statusEl.textContent='Computer denkt …'; hintEl.textContent=''; }
+  else if(st.turn===game.human){ statusEl.textContent='Du bist am Zug'+(inCheck(st)?' – Schach!':'.'); hintEl.textContent='Du spielst '+sideName(game.human)+', Stufe „'+LEVELS[game.level].name+'“.'; }
+  else { statusEl.textContent='Computer ist am Zug.'; hintEl.textContent=''; }
+  movesEl.innerHTML=moveRows(game.states,game.sans,null);
+  movesEl.scrollTop=movesEl.scrollHeight;
+  const c=capturedHtml(game.states);
+  document.getElementById('capW').innerHTML='<span class="lbl">Weiß verloren:</span>'+c.w;
+  document.getElementById('capB').innerHTML='<span class="lbl">Schwarz verloren:</span>'+c.b;
+  undoBtn.disabled=game.thinking||game.states.length<2;
+}
+function onSquare(sq){
+  if(game.over||game.thinking||promoOpen) return;
+  const st=cur(); if(st.turn!==game.human) return;
+  const choices=targets.filter(m=>m.to===sq);
+  if(sel>=0&&choices.length){
+    if(choices.length>1){ promoOpen=true; openPromo(promoEl,game.human,choices,m=>{promoOpen=false;playMove(m);}); return; }
+    playMove(choices[0]); return;
+  }
+  const p=st.b[sq];
+  if(p&&colorOf(p)===game.human&&sq!==sel){ sel=sq; targets=legalMoves(st).filter(m=>m.from===sq); }
+  else { sel=-1; targets=[]; }
+  renderPlay();
+}
+function playMove(m){
+  const st=cur();
+  game.sans.push(san(st,m,legalMoves(st)));
+  game.states.push(makeMove(st,m)); game.moves.push(m); game.codes.push(moveCode(m));
+  sel=-1; targets=[];
+  game.over=resultOf(game.states,game.human);
+  if(game.over&&game.over.win) celebrate();
+  renderPlay();
+  maybeComputer();
+}
+function gameCtx(){ return {keys:game.states.slice(0,-1).map(s=>s.key),codes:game.fromStart?game.codes.slice():null}; }
+function maybeComputer(){
+  if(game.over||cur().turn===game.human) return;
+  game.thinking=true; renderPlay();
+  const tk=game.token;
+  setTimeout(()=>{
+    if(tk!==game.token) return;
+    const m=think(cur(),game.level,gameCtx());
+    if(tk!==game.token) return;
+    game.thinking=false;
+    playMove(m);
+  },60);
+}
+function newGame(){
+  game.token++;
+  const c=document.getElementById('color').value;
+  game.human=c==='r'?(Math.random()<.5?'w':'b'):c;
+  game.level=+document.getElementById('level').value;
+  game.states=[initState()]; game.sans=[]; game.moves=[]; game.codes=[]; game.fromStart=true;
+  game.over=null; game.thinking=false; game.manualFlip=false;
+  sel=-1; targets=[]; promoOpen=false; promoEl.classList.remove('open');
+  renderPlay();
+  maybeComputer();
+}
+function undo(){
+  if(game.thinking||game.states.length<2) return;
+  game.token++;
+  const pop=()=>{game.states.pop();game.sans.pop();game.moves.pop();game.codes.pop();};
+  pop();
+  while(game.states.length>1&&cur().turn!==game.human) pop();
+  game.over=null; sel=-1; targets=[];
+  renderPlay();
+  maybeComputer();
+}
+document.getElementById('newBtn').addEventListener('click',newGame);
+undoBtn.addEventListener('click',undo);
+document.getElementById('flipBtn').addEventListener('click',()=>{game.manualFlip=!game.manualFlip;renderPlay();});
+document.getElementById('level').addEventListener('change',e=>{game.level=+e.target.value;renderPlay();});
+
+/* ---------- Konfetti ---------- */
+function celebrate(){
+  if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const box=document.createElement('div'); box.className='confetti'; box.setAttribute('aria-hidden','true');
+  const cols=['#6C4CF1','#2EC48A','#FFB627','#FF6B57','#3FB4F0'];
+  for(let i=0;i<70;i++){
+    const c=document.createElement('i');
+    c.style.left=Math.random()*100+'vw';
+    c.style.background=cols[i%cols.length];
+    c.style.animationDuration=(1.6+Math.random()*1.4)+'s';
+    c.style.animationDelay=(Math.random()*0.4)+'s';
+    box.appendChild(c);
+  }
+  document.body.appendChild(box);
+  setTimeout(()=>box.remove(),3600);
+}
+
+/* ---------- Coach-Box ---------- */
+const coachMsg=document.getElementById('coachMsg');
+const voiceBtn=document.getElementById('voiceBtn');
+function coachSay(text,o){
+  o=o||{};
+  const html='<p>'+(o.q?qIcon(o.q)+' ':'')+tokHtml(text)+'</p>';
+  coachMsg.classList.remove('busy');
+  if(o.append) coachMsg.innerHTML+=html; else coachMsg.innerHTML=html;
+  coachMsg.scrollTop=coachMsg.scrollHeight;
+  speak(o.speech!==undefined?o.speech:tokSpeech(text),!!o.append);
+}
+function coachBusy(text){ coachMsg.classList.add('busy'); coachMsg.innerHTML='<p>'+text+'</p>'; }
+function updateVoiceBtn(){
+  voiceBtn.setAttribute('aria-pressed',Voice.on?'true':'false');
+  voiceBtn.querySelector('.vlbl').textContent=Voice.on?'Sprache an':'Sprache aus';
+  if(!Voice.ok){ voiceBtn.disabled=true; voiceBtn.title='Dein Browser unterstützt keine Sprachausgabe.'; }
+}
+const voiceSel=document.getElementById('voiceSel');
+function fillVoices(){
+  if(!Voice.ok||!Voice.list.length){ voiceSel.hidden=true; return; }
+  voiceSel.hidden=false;
+  voiceSel.innerHTML=Voice.list.map((v,i)=>'<option value="'+i+'"'+(v===Voice.voice?' selected':'')+'>'+esc(voiceLabel(v))+'</option>').join('');
+}
+Voice.onList=fillVoices; fillVoices();
+voiceSel.addEventListener('change',()=>{
+  Voice.voice=Voice.list[+voiceSel.value]||Voice.voice;
+  if(!Voice.on){ Voice.on=true; updateVoiceBtn(); }
+  speak('Hallo! So klinge ich jetzt. Gefällt dir die Stimme?');
+});
+voiceBtn.addEventListener('click',()=>{
+  Voice.on=!Voice.on; updateVoiceBtn();
+  if(Voice.on) speak(tokSpeech(coachMsg.textContent)||'Sprachausgabe ist an.');
+  else if(Voice.ok) speechSynthesis.cancel();
+});
+document.getElementById('analyzeBtn').addEventListener('click',()=>{
+  const v=learnView();
+  if(!v) return;
+  coachBusy('Ich analysiere das Brett …');
+  setTimeout(()=>coachSay(analyzeBoard(v.st,v.ctx,v.me,v.reveal)),40);
+});
+
+/* ---------- Lernmodus ---------- */
+const L={mode:'list',lesson:-1,step:0,st:null,sel:-1,targets:[],last:null,lastQ:null,wrong:false,cands:[],ply:0,solved:false,busy:false,demo:null,di:0,token:0,side:'w',keys:[],
+         solvedSteps:new Set(),done:new Set()};
+const TR={states:[],moves:[],sans:[],quals:[],codes:[],human:'w',level:2,over:null,busy:false,token:0,fromStart:true,label:'',hint:0,hintMove:null,sel:-1,targets:[]};
+const learnPanel=document.getElementById('learnPanel');
+const learnStatus=document.getElementById('learnStatus');
+const learnPromo=document.getElementById('learnPromo');
+const learnSqs=makeBoard(document.getElementById('learnBoard'),onLearnSquare);
+const curStep=()=>L.mode==='lesson'?LESSONS[L.lesson].steps[L.step]:null;
+
+/* aktuelle Stellung im Lernbereich (für die Brettanalyse) */
+function learnView(){
+  if(L.mode==='train'){ const st=TR.states[TR.states.length-1]; return {st,ctx:trCtx(),me:TR.human,reveal:true}; }
+  const s=curStep(); if(!s) return {st:initState(),ctx:{keys:[],codes:[]},me:'w',reveal:true};
+  if(s.type==='demo') return {st:L.demo.states[L.di],ctx:{keys:L.demo.states.slice(0,L.di).map(x=>x.key),codes:null},me:L.demo.states[L.di].turn,reveal:true};
+  return {st:L.st,ctx:{keys:L.keys.slice(),codes:null},me:L.side,reveal:s.type!=='puzzle'||L.solved};
+}
+
+function openLesson(i){ L.mode='lesson'; L.lesson=i; L.step=0; loadStep(); learnPanel.scrollTop=0; }
+function goHome(){
+  L.token++; TR.token++; L.mode='list'; L.lesson=-1;
+  renderLearn();
+  coachSay('Hallo, ich bin dein Coach. Wähle eine Lektion oder starte ein Training. Ich bewerte jeden Zug mit einem Symbol und erkläre dir, worauf es ankommt.');
+}
+
+function loadStep(){
+  L.token++;
+  const s=curStep();
+  Object.assign(L,{sel:-1,targets:[],last:null,lastQ:null,wrong:false,busy:false,solved:false,ply:0,demo:null,di:0,keys:[]});
+  L.st=parseFen(s.fen); L.side=L.st.turn;
+  if(s.type==='puzzle'){
+    L.cands=s.lines.map(l=>l.slice());
+    const again=L.solvedSteps.has(L.lesson+':'+L.step);
+    coachSay(s.task+(again?' Diese Aufgabe hast du schon gelöst.':''),{speech:tokSpeech((s.intro||'')+' '+s.task)});
+  } else if(s.type==='demo'){
+    const states=[L.st],sans=[],moves=[]; let st=L.st;
+    for(const [c] of s.moves){ const m=findMove(st,c); sans.push(san(st,m,legalMoves(st))); moves.push(m); st=makeMove(st,m); states.push(st); }
+    L.demo={states,sans,moves,q:[],fromStart:s.fen===START_FEN};
+    coachSay('Klicke auf „Zug vor“. Ich kommentiere und bewerte jeden Zug.',{speech:stripTags(s.intro)+' Klicke auf Zug vor. Ich kommentiere jeden Zug.'});
+  } else if(s.type==='text'){
+    coachSay('Lies dir die Erklärung durch. Mit der Sprachausgabe lese ich sie dir vor.',{speech:stripTags(s.text)});
+  } else if(s.type==='practice'){
+    coachSay('Bereit? Starte die Übung, ich begleite dich Zug für Zug.',{speech:stripTags(s.text)});
+  }
+  const lesson=LESSONS[L.lesson];
+  if(!lesson.steps.some(x=>x.type==='puzzle')&&L.step===lesson.steps.length-1) L.done.add(L.lesson);
+  renderLearn();
+}
+function checkLessonDone(){
+  const lesson=LESSONS[L.lesson];
+  if(lesson.steps.every((x,i)=>x.type!=='puzzle'||L.solvedSteps.has(L.lesson+':'+i))) L.done.add(L.lesson);
+}
+
+function drawLearn(){
+  if(L.mode==='train'){
+    const st=TR.states[TR.states.length-1], n=TR.moves.length;
+    drawBoard(learnSqs,st,{flipped:TR.human==='b',last:TR.moves[n-1],badge:{q:TR.quals[n-1]},sel:TR.sel,targets:TR.targets,mark:TR.hint?TR.hintMove&&TR.hintMove.from:undefined});
+    learnStatus.textContent=TR.over?TR.over.text:TR.busy?'Bitte kurz warten …':(st.turn===TR.human?'Du bist am Zug'+(inCheck(st)?' – Schach!':'.'):'Computer ist am Zug.');
+    return;
+  }
+  const s=curStep();
+  if(!s){ drawBoard(learnSqs,initState(),{}); learnStatus.textContent='Wähle eine Lektion.'; return; }
+  if(s.type==='demo'){
+    drawBoard(learnSqs,L.demo.states[L.di],{flipped:!!s.flip,last:L.demo.moves[L.di-1],badge:{q:L.demo.q[L.di-1]}});
+    learnStatus.textContent=L.di?'Zug '+L.di+' von '+L.demo.moves.length:'Ausgangsstellung';
+  } else {
+    drawBoard(learnSqs,L.st,{flipped:L.side==='b',last:L.last,wrong:L.wrong,sel:L.sel,targets:L.targets,badge:{q:L.lastQ}});
+    learnStatus.textContent=s.type==='puzzle'&&L.solved?'Gelöst':(L.busy?'Bitte kurz warten …':sideName(L.st.turn)+' am Zug');
+  }
+}
+
+const LEGEND='<details class="legend"><summary>Bedeutung der Symbole</summary><ul>'+
+  QORDER.map(q=>'<li>'+qIcon(q)+' <span>'+QUAL[q].label+'</span></li>').join('')+'</ul></details>';
+
+function renderLearn(){
+  drawLearn();
+  let h='';
+  if(L.mode==='list'){
+    h+='<section class="trainCard"><h3>Training mit Coach</h3><p class="tdesc">Spiel eine ganze Partie. Der Coach bewertet jeden Zug, warnt vor Gefahren und gibt dir Tipps.</p>'+
+       '<button type="button" class="act primary" data-act="train">Training starten</button></section>';
+    for(const t of TOPICS){
+      h+='<section class="topic"><h3>'+t.name+'</h3><p class="tdesc">'+t.desc+'</p><div class="lessons">';
+      LESSONS.forEach((l,i)=>{ if(l.topic===t.id) h+='<button type="button" class="lesson" data-act="open" data-i="'+i+'"><span>'+l.title+'</span><span class="chk">'+(L.done.has(i)?'<span aria-label="erledigt">✓</span>':'')+'</span></button>'; });
+      h+='</div></section>';
+    }
+    h+='<p class="progress-total">'+L.done.size+' von '+LESSONS.length+' Lektionen abgeschlossen</p>'+LEGEND;
+    learnPanel.innerHTML=h; return;
+  }
+  if(L.mode==='train'){ learnPanel.innerHTML=trainPanel(); const ml=learnPanel.querySelector('.moves'); if(ml) ml.scrollTop=ml.scrollHeight; return; }
+
+  const s=curStep(), lesson=LESSONS[L.lesson], topic=TOPICS.find(t=>t.id===lesson.topic);
+  h+='<button type="button" class="back" data-act="home">← Alle Lektionen</button>';
+  h+='<p class="meta">'+topic.name+'</p><h2 class="ltitle">'+lesson.title+'</h2>';
+  if(lesson.steps.length>1){
+    h+='<div class="dots" aria-label="Schritt '+(L.step+1)+' von '+lesson.steps.length+'">';
+    lesson.steps.forEach((x,i)=>{ h+='<span class="dot'+(i===L.step?' on':'')+(i<L.step?' past':'')+'"></span>'; });
+    h+='<span class="dotlbl">Schritt '+(L.step+1)+' von '+lesson.steps.length+'</span></div>';
+  }
+  h+='<div class="body">';
+  if(s.type==='text'){ h+=s.text; }
+  else if(s.type==='demo'){
+    const d=L.demo, n=d.moves.length;
+    if(L.di===0) h+=s.intro;
+    else{
+      const cm=s.moves[L.di-1][1];
+      h+='<div class="comment">'+(d.q[L.di-1]?qIcon(d.q[L.di-1])+' ':'')+'<b>'+esc(moveLabel(d.states[L.di-1],d.sans[L.di-1]))+'</b>'+(cm?' '+cm:'')+'</div>';
+      if(L.di===n&&s.outro) h+=s.outro;
+    }
+    h+='<div class="dmoves">';
+    d.sans.forEach((x,i)=>{ h+='<button type="button" class="dm'+(i===L.di-1?' cur':'')+'" data-act="jump" data-i="'+(i+1)+'">'+esc(moveLabel(d.states[i],x))+(d.q[i]?' '+qIcon(d.q[i]):'')+'</button>'; });
+    h+='</div><div class="row">';
+    h+='<button type="button" class="act secondary" data-act="dstart"'+(L.di===0?' disabled':'')+'>Anfang</button>';
+    h+='<button type="button" class="act secondary" data-act="dprev"'+(L.di===0?' disabled':'')+'>◀ Zug zurück</button>';
+    h+='<button type="button" class="act primary" data-act="dnext"'+(L.di===n?' disabled':'')+'>Zug vor ▶</button></div>';
+    h+='<p class="small">Tipp: Mit den Pfeiltasten ← → kannst du ebenfalls blättern.</p>';
+  }
+  else if(s.type==='puzzle'){
+    if(s.intro) h+=s.intro;
+    h+='<p class="task">'+s.task+'</p>';
+    if(L.solved) h+='<p class="solved">✓ Gelöst</p>';
+    h+='<div class="row">';
+    if(!L.solved){
+      h+='<button type="button" class="act secondary" data-act="hint">Tipp</button>';
+      h+='<button type="button" class="act secondary" data-act="solve"'+(L.busy?' disabled':'')+'>Lösung zeigen</button>';
+    }
+    h+='<button type="button" class="act secondary" data-act="reset">Neu starten</button></div>';
+    h+='<p class="small">Die Kommentare des Coaches stehen unter dem Brett.</p>';
+  }
+  else if(s.type==='practice'){
+    h+=s.text;
+    h+='<div class="row"><button type="button" class="act primary" data-act="practice">Mit dem Coach üben</button></div>';
+  }
+  h+='</div>';
+  const last=L.step===lesson.steps.length-1;
+  const nextLbl=!last?'Weiter':(L.lesson<LESSONS.length-1?'Nächste Lektion':'Zur Übersicht');
+  h+='<div class="row nav">';
+  h+='<button type="button" class="act secondary" data-act="prevStep"'+(L.step===0?' disabled':'')+'>Zurück</button>';
+  h+='<button type="button" class="act primary" data-act="nextStep">'+nextLbl+'</button></div>';
+  learnPanel.innerHTML=h;
+}
+
+learnPanel.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'); if(!b||b.disabled) return;
+  const a=b.dataset.act;
+  if(a==='open'){ openLesson(+b.dataset.i); return; }
+  if(a==='home'){ goHome(); return; }
+  if(a==='train'){ startTraining({}); return; }
+  if(a==='trNew'){ startTraining({fen:TR.fen,label:TR.label,keepSide:!!TR.fen}); return; }
+  if(a==='trUndo'){ trUndo(); return; }
+  if(a==='trHint'){ trHint(); return; }
+  const lesson=L.mode==='lesson'?LESSONS[L.lesson]:null;
+  if(a==='prevStep'){ L.step--; loadStep(); return; }
+  if(a==='nextStep'){
+    if(L.step<lesson.steps.length-1){ L.step++; loadStep(); }
+    else if(L.lesson<LESSONS.length-1) openLesson(L.lesson+1);
+    else goHome();
+    return;
+  }
+  if(a==='dstart') demoGo(0);
+  if(a==='dprev') demoGo(L.di-1);
+  if(a==='dnext') demoGo(L.di+1);
+  if(a==='jump') demoGo(+b.dataset.i);
+  if(a==='hint'){ coachSay(curStep().hint); }
+  if(a==='reset'){ loadStep(); }
+  if(a==='solve'){ showSolution(); }
+  if(a==='practice'){ const s=curStep(); startTraining({fen:s.fen,label:s.label}); }
+});
+learnPanel.addEventListener('change',e=>{
+  if(e.target.id==='trLevel'){ TR.level=+e.target.value; }
+  if(e.target.id==='trColor'){ TR.color=e.target.value; }
+});
+
+/* ----- Zugfolgen (Demo) ----- */
+function demoGo(i){
+  const s=curStep(), d=L.demo;
+  L.di=Math.max(0,Math.min(d.moves.length,i));
+  renderLearn();
+  if(L.di===0){ coachSay('Ausgangsstellung. Klicke auf „Zug vor“.'); return; }
+  const k=L.di-1, tk=L.token;
+  const say=()=>{
+    const q=d.q[k], cm=s.moves[k][1];
+    let t='⟦'+d.sans[k]+'⟧: '+(cm||QUAL[q].label+'.');
+    if(['inacc','mistake','blunder'].includes(q)) t+=' Der Coach bewertet diesen Zug als „'+QUAL[q].label+'“.';
+    if(L.di===d.moves.length&&s.outro) t+=' '+stripTags(s.outro);
+    coachSay(t,{q});
+  };
+  if(d.q[k]){ say(); return; }
+  coachBusy('Ich bewerte den Zug …');
+  setTimeout(()=>{
+    if(tk!==L.token) return;
+    const codes=d.fromStart?d.moves.slice(0,k).map(moveCode):null;
+    const g=gradeMove(d.states[k],d.moves[k],{keys:d.states.slice(0,k).map(x=>x.key),codes},450);
+    d.q[k]=g.q;
+    if(L.di-1===k){ renderLearn(); say(); }
+  },30);
+}
+
+/* ----- Aufgaben ----- */
+function onLearnSquare(sq){
+  if(L.mode==='train'){ trClick(sq); return; }
+  const s=curStep();
+  if(!s||s.type!=='puzzle'||L.solved||L.busy) return;
+  const st=L.st, choices=L.targets.filter(m=>m.to===sq);
+  if(L.sel>=0&&choices.length){
+    if(choices.length>1){ L.busy=true; openPromo(learnPromo,st.turn,choices,m=>{L.busy=false;tryPuzzleMove(m);}); return; }
+    tryPuzzleMove(choices[0]); return;
+  }
+  const p=st.b[sq];
+  if(p&&colorOf(p)===st.turn&&sq!==L.sel){ L.sel=sq; L.targets=legalMoves(st).filter(m=>m.from===sq); }
+  else { L.sel=-1; L.targets=[]; }
+  drawLearn();
+}
+
+function tryPuzzleMove(m){
+  const s=curStep(), code=moveCode(m), prev=L.st, prevLast=L.last, prevQ=L.lastQ;
+  const after=makeMove(L.st,m), tk=L.token, sanS=san(prev,m,legalMoves(prev));
+  L.sel=-1; L.targets=[];
+  let ok=false, final=false, why='Das ist nicht die gesuchte Lösung. Versuch es noch einmal.';
+  const lineMatch=L.cands.filter(l=>l[L.ply]===code);
+  if(s.goal==='mate'&&isMated(after)){ ok=true; final=true; }
+  else if(s.goal==='defend'){
+    if(hasMateIn1(after)) why='Danach gibt es immer noch ein Matt in einem Zug. Versuch es noch einmal.';
+    else if(!s.strict||lineMatch.length){ ok=true; final=true; }
+    else why='Das verhindert das Matt, schwächt aber deine Stellung. Es gibt eine bessere Verteidigung.';
+  }
+  else if(lineMatch.length){ ok=true; L.cands=lineMatch; final=lineMatch.some(l=>l.length===L.ply+1); }
+  else if(s.goal==='mate'&&L.cands.some(l=>l.length===L.ply+1)) why='Das ist noch kein Matt. Versuch es noch einmal.';
+
+  L.keys.push(prev.key); L.st=after; L.last=m; L.ply++;
+  if(!ok){
+    L.wrong=true; L.busy=true; L.lastQ=null;
+    renderLearn(); coachBusy('Ich schaue mir den Zug an …');
+    setTimeout(()=>{
+      if(tk!==L.token) return;
+      const g=gradeMove(prev,m,{keys:L.keys.slice(0,-1),codes:null},350);
+      /* in Aufgaben gilt nur die gesuchte Lösung; ein guter Ausweichzug bleibt trotzdem „gut“ markiert */
+      L.lastQ=g.q==='best'?'good':g.q; drawLearn();
+      const d=describeMove(prev,m,g,{mine:true,reveal:false,noHead:true});
+      coachSay(why+(d.text?' '+d.text:''),{q:L.lastQ});
+      setTimeout(()=>{ if(tk!==L.token) return; L.keys.pop(); L.st=prev; L.last=prevLast; L.lastQ=prevQ; L.ply--; L.wrong=false; L.busy=false; renderLearn(); },1600);
+    },30);
+    return;
+  }
+  L.lastQ='best';
+  if(final){ puzzleSolved(s.done); return; }
+  L.busy=true;
+  renderLearn();
+  coachSay('Richtig, ⟦'+sanS+'⟧ ist der beste Zug.',{q:'best'});
+  setTimeout(()=>opponentReply(tk),900);
+}
+
+function opponentReply(tk){
+  if(tk!==L.token) return;
+  const c=L.cands[0][L.ply], m=findMove(L.st,c), before=L.st;
+  const label=san(before,m,legalMoves(before));
+  const g=gradeMove(before,m,{keys:L.keys.slice(),codes:null},300);
+  L.keys.push(before.key); L.st=makeMove(before,m); L.last=m; L.lastQ=g.q; L.ply++;
+  L.cands=L.cands.filter(l=>l[L.ply-1]===c);
+  L.busy=false;
+  renderLearn();
+  coachSay(sideName(other(L.side))+' antwortet mit ⟦'+label+'⟧. Du bist wieder am Zug.',{q:g.q,append:true});
+}
+
+function puzzleSolved(text){
+  L.solved=true; L.busy=false;
+  L.solvedSteps.add(L.lesson+':'+L.step);
+  checkLessonDone();
+  celebrate();
+  renderLearn();
+  coachSay(text,{q:'best'});
+}
+
+function showSolution(){
+  const s=curStep(); if(L.solved||L.busy) return;
+  const line=L.cands[0], tk=L.token;
+  L.busy=true; renderLearn();
+  coachBusy('Ich zeige dir die Lösung …');
+  const stepFn=()=>{
+    if(tk!==L.token) return;
+    if(L.ply>=line.length){ puzzleSolved('Lösung: '+s.done); return; }
+    const m=findMove(L.st,line[L.ply]);
+    L.keys.push(L.st.key); L.st=makeMove(L.st,m); L.last=m; L.lastQ=(L.ply%2===0)?'best':null; L.ply++;
+    drawLearn();
+    setTimeout(stepFn,800);
+  };
+  setTimeout(stepFn,400);
+}
+
+/* ----- Training mit Coach ----- */
+const trCur=()=>TR.states[TR.states.length-1];
+function trCtx(){ return {keys:TR.states.slice(0,-1).map(s=>s.key),codes:TR.fromStart?TR.codes.slice():null}; }
+
+function startTraining(opt){
+  TR.token++; L.token++;
+  L.mode='train';
+  const colorSel=TR.color||'w';
+  const st=opt.fen?parseFen(opt.fen):initState();
+  TR.fen=opt.fen||null; TR.label=opt.label||'';
+  TR.human=opt.fen?st.turn:(colorSel==='r'?(Math.random()<.5?'w':'b'):colorSel);
+  Object.assign(TR,{states:[st],moves:[],sans:[],quals:[],codes:[],over:null,busy:false,fromStart:!opt.fen,hint:0,hintMove:null,sel:-1,targets:[]});
+  renderLearn(); learnPanel.scrollTop=0;
+  coachSay((TR.label?TR.label+'. ':'')+'Du spielst '+sideName(TR.human)+' gegen die Stufe „'+LEVELS[TR.level].name+'“. Ich bewerte jeden Zug und sage dir, worauf du achten solltest.');
+  if(trCur().turn!==TR.human){ TR.busy=true; renderLearn(); setTimeout(()=>trComputer(TR.token),300); }
+}
+
+function trainPanel(){
+  const st=trCur(), counts={};
+  TR.quals.forEach((q,i)=>{ if(q&&TR.states[i].turn===TR.human) counts[q]=(counts[q]||0)+1; });
+  const bal=QORDER.filter(q=>counts[q]).map(q=>'<span class="balItem">'+qIcon(q)+' '+counts[q]+'</span>').join('');
+  let h='<button type="button" class="back" data-act="home">← Alle Lektionen</button>';
+  h+='<p class="meta">Training</p><h2 class="ltitle">'+(TR.label||'Training mit Coach')+'</h2>';
+  if(!TR.fen){
+    h+='<div class="row"><label>Deine Farbe<select id="trColor">'+
+      [['w','Weiß'],['b','Schwarz'],['r','Zufall']].map(([v,t])=>'<option value="'+v+'"'+((TR.color||'w')===v?' selected':'')+'>'+t+'</option>').join('')+'</select></label>';
+  } else h+='<div class="row">';
+  h+='<label>Spielstärke<select id="trLevel">'+[1,2,3,4].map(v=>'<option value="'+v+'"'+(TR.level===v?' selected':'')+'>'+LEVELS[v].name+'</option>').join('')+'</select></label></div>';
+  h+='<div class="row"><button type="button" class="act primary" data-act="trNew">'+(TR.fen?'Übung neu starten':'Neue Partie')+'</button></div>';
+  h+='<div class="row"><button type="button" class="act secondary" data-act="trHint"'+(TR.busy||TR.over||st.turn!==TR.human?' disabled':'')+'>'+(TR.hint===1?'Ganzen Zug zeigen':'Tipp')+'</button>'+
+     '<button type="button" class="act secondary" data-act="trUndo"'+(TR.busy||TR.states.length<2?' disabled':'')+'>Zug zurück</button></div>';
+  h+='<h3 class="sub3">Züge</h3><ol class="moves">'+moveRows(TR.states,TR.sans,TR.quals)+'</ol>';
+  h+='<p class="balance"><span class="lbl">Deine Bilanz:</span> '+(bal||'<span class="lbl">noch keine Züge</span>')+'</p>';
+  h+=LEGEND;
+  return h;
+}
+
+function trClick(sq){
+  if(TR.over||TR.busy) return;
+  const st=trCur(); if(st.turn!==TR.human) return;
+  const choices=TR.targets.filter(m=>m.to===sq);
+  if(TR.sel>=0&&choices.length){
+    if(choices.length>1){ TR.busy=true; openPromo(learnPromo,TR.human,choices,m=>{TR.busy=false;trUserMove(m);}); return; }
+    trUserMove(choices[0]); return;
+  }
+  const p=st.b[sq];
+  if(p&&colorOf(p)===TR.human&&sq!==TR.sel){ TR.sel=sq; TR.targets=legalMoves(st).filter(m=>m.from===sq); }
+  else { TR.sel=-1; TR.targets=[]; }
+  drawLearn();
+}
+
+function trPush(st,m){
+  TR.sans.push(san(st,m,legalMoves(st)));
+  TR.states.push(makeMove(st,m)); TR.moves.push(m); TR.quals.push(null); TR.codes.push(moveCode(m));
+}
+
+function trUserMove(m){
+  const prev=trCur(), ctx=trCtx(), tk=TR.token;
+  trPush(prev,m);
+  TR.sel=-1; TR.targets=[]; TR.hint=0; TR.hintMove=null;
+  TR.over=resultOf(TR.states,TR.human); TR.busy=true;
+  renderLearn(); coachBusy('Ich schaue mir deinen Zug an …');
+  setTimeout(()=>{
+    if(tk!==TR.token) return;
+    const g=gradeMove(prev,m,ctx,650);
+    TR.quals[TR.quals.length-1]=g.q;
+    coachSay(describeMove(prev,m,g,{mine:true,reveal:true}).text,{q:g.q});
+    if(TR.over){ TR.busy=false; renderLearn(); coachSay(trSummary(),{append:true}); if(TR.over.win) celebrate(); return; }
+    renderLearn();
+    setTimeout(()=>trComputer(tk),60);
+  },40);
+}
+
+function trComputer(tk){
+  if(tk!==TR.token) return;
+  const st=trCur(), ctx=trCtx();
+  const m=think(st,TR.level,ctx);
+  if(tk!==TR.token) return;
+  trPush(st,m);
+  TR.over=resultOf(TR.states,TR.human);
+  const g=gradeMove(st,m,ctx,400);
+  TR.quals[TR.quals.length-1]=g.q;
+  TR.busy=false;
+  renderLearn();
+  coachSay(describeMove(st,m,g,{mine:false,reveal:false}).text,{q:g.q,append:coachMsg.textContent.length>0&&TR.moves.length>1});
+  if(TR.over) coachSay(trSummary(),{append:true});
+}
+
+function trSummary(){
+  const counts={};
+  TR.quals.forEach((q,i)=>{ if(q&&TR.states[i].turn===TR.human) counts[q]=(counts[q]||0)+1; });
+  const parts=QORDER.filter(q=>counts[q]).map(q=>counts[q]+'-mal „'+QUAL[q].label+'“');
+  return TR.over.text+(parts.length?' Deine Bilanz: '+parts.join(', ')+'.':'');
+}
+
+function trUndo(){
+  if(TR.busy||TR.states.length<2) return;
+  TR.token++;
+  const pop=()=>{TR.states.pop();TR.sans.pop();TR.moves.pop();TR.quals.pop();TR.codes.pop();};
+  pop();
+  while(TR.states.length>1&&trCur().turn!==TR.human) pop();
+  if(trCur().turn!==TR.human){ TR.over=null; TR.busy=true; renderLearn(); setTimeout(()=>trComputer(TR.token),200); return; }
+  TR.over=null; TR.sel=-1; TR.targets=[]; TR.hint=0; TR.hintMove=null;
+  renderLearn();
+  coachSay('Zug zurückgenommen. Du bist wieder am Zug.');
+}
+
+function trHint(){
+  if(TR.busy||TR.over) return;
+  const st=trCur(); if(st.turn!==TR.human) return;
+  if(TR.hint===1&&TR.hintMove){
+    TR.hint=2; renderLearn();
+    coachSay('Mein Vorschlag: ⟦'+san(st,TR.hintMove,legalMoves(st))+'⟧.');
+    return;
+  }
+  coachBusy('Ich suche einen guten Zug …');
+  setTimeout(()=>{
+    TT.clear();
+    const r=rootSearch(st,{depth:30,time:800,q:16},trCtx().keys);
+    TR.hintMove=r.move; TR.hint=1;
+    renderLearn();
+    const t=up(r.move.piece);
+    coachSay('Schau dir '+POSS_ACC[t]+' auf '+sqName(r.move.from)+' an. Ich habe das Feld markiert.');
+  },30);
+}
+
+/* ---------- Tabs & Tastatur ---------- */
+function switchTab(id){
+  for(const t of document.querySelectorAll('.tab')) t.setAttribute('aria-selected',t.dataset.tab===id?'true':'false');
+  document.getElementById('playView').hidden=id!=='play';
+  document.getElementById('learnView').hidden=id!=='learn';
+  if(Voice.ok) speechSynthesis.cancel();
+  if(id==='play') renderPlay(); else renderLearn();
+}
+for(const t of document.querySelectorAll('.tab')) t.addEventListener('click',()=>switchTab(t.dataset.tab));
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(promoOpen){promoEl.classList.remove('open');promoOpen=false;}
+    if(learnPromo.classList.contains('open')){learnPromo.classList.remove('open');L.busy=false;TR.busy=false;}
+    sel=-1;targets=[];L.sel=-1;L.targets=[];TR.sel=-1;TR.targets=[];
+    renderPlay(); if(!document.getElementById('learnView').hidden) drawLearn();
+  }
+  const s=curStep();
+  if(!document.getElementById('learnView').hidden&&s&&s.type==='demo'&&!/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)){
+    if(e.key==='ArrowRight') demoGo(L.di+1);
+    if(e.key==='ArrowLeft') demoGo(L.di-1);
+  }
+});
+
+updateVoiceBtn();
+renderPlay();
+goHome();
+
+})();
+</script>
+<script>
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+  window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+</script>
+</body>
+</html>
